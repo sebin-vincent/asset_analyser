@@ -1,6 +1,9 @@
 # Mutual Fund Comparison
 
-Frontend-only React app for comparing the historical performance of Indian mutual funds. Search for funds, add several to a comparison list, pick a date range, and see their normalized % growth overlaid on one chart plus a returns/CAGR table.
+Frontend-only React app for comparing Indian mutual funds, in two modes toggled at the top of the page:
+
+- **Compare funds** — search for funds, add several, pick a date range, see their normalized % growth overlaid on one chart plus a returns/CAGR table.
+- **What if?** — upload a Zerodha tradebook CSV, pick up to two alternative funds, and see what your actual purchases would be worth had the same money gone into them on the same dates. Rupee-value chart plus an invested/value/gain/XIRR table.
 
 ## Commands
 
@@ -69,6 +72,29 @@ Two traps here:
 
 Hovering the anchor itself falls back to NAV mode rather than rendering a column of `+0.00%`, and `no-update` rows render as "no update" for the same reason the panel does.
 
+## "What if?" mode — replaying a tradebook into another fund
+
+Upload a Zerodha tradebook, pick alternatives, and every fund receives **the same money on the same dates**, priced at its own NAV that day. Identical cash flows are what make plotting rupee values directly comparable, which is why this chart's y-axis is ₹ and not %.
+
+**Buys only.** A sell row makes [tradebook.ts](src/utils/tradebook.ts) refuse the whole file and name the offending lines. Simulating a redemption is out of scope, and ignoring one overstates the portfolio — so refusing loudly is the design, not a gap.
+
+Facts about the CSV that the code depends on:
+
+- Pipe-delimited with a header row. Columns are indexed **by header name, never by position** — Zerodha adds and reorders columns between exports, and a positional parser reads the wrong field without failing.
+- `quantity` is units, `price` is the NAV paid, so a row's invested amount is their product.
+- **`price` *is* the fund's published NAV** — verified to four decimals against mfapi for 8 of the sample's 9 rows. That makes the CSV cross-checkable, and authoritative for its own fund's NAV on those dates.
+- Trades group by **ISIN, not symbol**: a scheme renamed mid-history would otherwise split into two holdings.
+
+**Identification is confirmed, not guessed** ([fundMatch.ts](src/utils/fundMatch.ts)). mfapi's search does *not* index ISIN (`?q=INF0R8F01117` → `[]`) but `meta.isin_growth` carries it, so ISIN can verify a match while only names can find one. And the search is weak: the verbatim symbol `ZERODHA MULTI ASSET PASSIVE FOF - DIRECT PLAN GROWTH` returns `[]`, while trimming the plan/option suffix returns the right scheme. Hence `deriveSearchQueries` → search → ISIN-confirm. The UI then shows the price-vs-NAV tally as evidence.
+
+**The actual fund is simulated differently from the alternatives, deliberately.** Its units come straight from the CSV's `quantity` (the broker's real allotment), and `seedNavPoints` fills its NAV series from the CSV's own `(trade_date, price)` pairs wherever mfapi has none. Both follow from the tradebook being authoritative for its own fund. Without the seed, the sample's NFO allotment on 13-08-2025 — ₹9,999, 3% of the portfolio — vanishes, because the scheme's published history only starts 20-08-2025.
+
+**The misleading zero, fourth appearance.** A discontinued scheme (e.g. HDFC Focused Large-Cap Fund, NAV history ending June 2014) resolves *every* 2026 purchase at-or-before to its final stale NAV. `units × nav` then returns exactly the amount invested and the fund reports a flawless **+₹0 / +0.00%** — found in the browser, not in review. `simulate()` now carries the same guard `resolveEffectiveRange` has: if the fund's last NAV predates the last purchase, it is `unavailable`, not zero. A fund that merely stops reporting a few days early is still valued, but the table prints "as of <date>" under it rather than claiming "value today".
+
+**XIRR, not CAGR** ([xirr.ts](src/utils/xirr.ts)). `computeCagrPct` assumes one lump sum held start to end; money paid in across nine dates needs the rate that zeroes the discounted flows. Newton–Raphson with a bisection fallback, `null` when it doesn't converge or all flows share a sign — never a fabricated number next to someone's money.
+
+[mergeSeries.ts](src/utils/mergeSeries.ts) serves both charts from one alignment algorithm: `mergeToChartData` for percentages, `mergeValueSeries` for rupees. The latter takes `extraDates` so purchase dates are forced into the timeline and each line steps on the day money went in, not the next trading day.
+
 ## Conventions worth preserving
 
 - **Fetching is keyed only by `schemeCode`, never by date range.** The full history is fetched once and all range slicing happens client-side in `useMemo`. Changing the date range must never trigger a network call.
@@ -101,8 +127,13 @@ What's pinned, and why each earns its place:
 - **[mergeSeries.test.ts](src/utils/mergeSeries.test.ts)** — forward-fill is the *previous* value, not an interpolated midpoint; leading nulls; and **no trailing nulls**, which `no-update` depends on for its meaning.
 - **[dateUtils.test.ts](src/utils/dateUtils.test.ts)** — `DD-MM` order, UTC-midnight pinned to a hardcoded epoch literal (so a switch to local-time parsing fails on any machine), zero NAVs kept while `NaN` is dropped, and every `findIndexAtOrBefore` boundary.
 - **[returns.test.ts](src/utils/returns.test.ts)** — CAGR against a hand-computed answer, and `null` under a day.
+- **[whatIf.pipeline.test.ts](src/utils/whatIf.pipeline.test.ts)** — the what-if cross-module contract, run against the **real** tradebook and **real** NAV history. Its sharpest assertion: units derived as `amount / NAV(trade date)` must reproduce the broker's own `quantity` column. Since `amount = quantity × price`, that holds only if the NAV date resolution picks the right day — an off-by-one grabs a neighbouring NAV, units shift by a fraction of a percent, and nothing looks wrong. Also pins that dropping the seeded NAV point loses ₹9,999.
+- **[tradebook.test.ts](src/utils/tradebook.test.ts)** — header-name indexing survives reordered columns, sells are refused rather than ignored, ISIN grouping, bad rows by line number.
+- **[counterfactual.test.ts](src/utils/counterfactual.test.ts)** — value equals units × final NAV, the line steps on the purchase date, pre-inception purchases are recorded in rupees rather than dropped, and the discontinued-fund guard.
+- **[xirr.test.ts](src/utils/xirr.test.ts)** — a known 10% answer, plus the **NPV oracle**: feed the returned rate back into the equation it claims to have solved and assert ≈ 0. Independent of any root-finder.
+- **[fundMatch.test.ts](src/utils/fundMatch.test.ts)** — the suffix trimming still produces the exact query mfapi answers to, and the price cross-check flags a wrong fund instead of accepting it.
 
-Fixtures live in [navData.ts](src/utils/__fixtures__/navData.ts) as **raw mfapi-shaped rows** (newest-first, string NAVs, `DD-MM-YYYY`), not pre-parsed points, so tests exercise the real parse and can't drift from the API's actual shape.
+Fixtures live in [navData.ts](src/utils/__fixtures__/navData.ts) and [tradebookData.ts](src/utils/__fixtures__/tradebookData.ts) as **raw mfapi-shaped rows** (newest-first, string NAVs, `DD-MM-YYYY`) and the verbatim tradebook CSV, not pre-parsed structures, so tests exercise the real parse and can't drift from the real input shapes.
 
 **A passing suite proves nothing until you've watched it fail.** These three mutations were each applied and reverted; if you change this code, they should still go red:
 

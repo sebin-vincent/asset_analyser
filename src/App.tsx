@@ -6,6 +6,7 @@ import { ComparisonChart } from './components/ComparisonChart';
 import { ReturnsSummaryTable } from './components/ReturnsSummaryTable';
 import { SelectionDeltaPanel } from './components/SelectionDeltaPanel';
 import { EmptyState } from './components/EmptyStates';
+import { WhatIfView } from './components/WhatIfView';
 import { useSelectedFunds } from './hooks/useSelectedFunds';
 import { useFundHistories } from './hooks/useFundHistory';
 import { toAscendingNavPoints, formatAxisDate } from './utils/dateUtils';
@@ -23,7 +24,42 @@ function defaultRange(): DateRange {
   return { start, end };
 }
 
+type Mode = 'compare' | 'what-if';
+
+const MODES: { id: Mode; label: string }[] = [
+  { id: 'compare', label: 'Compare funds' },
+  { id: 'what-if', label: 'What if?' },
+];
+
+function ModeToggle({ mode, onChange }: { mode: Mode; onChange: (mode: Mode) => void }) {
+  return (
+    <div
+      role="tablist"
+      aria-label="View"
+      className="inline-flex rounded-lg border border-[#e1e0d9] bg-[#fcfcfb] p-0.5 dark:border-[#2c2c2a] dark:bg-[#1a1a19]"
+    >
+      {MODES.map(({ id, label }) => (
+        <button
+          key={id}
+          type="button"
+          role="tab"
+          aria-selected={mode === id}
+          onClick={() => onChange(id)}
+          className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
+            mode === id
+              ? 'bg-[#f0efec] font-medium text-[#0b0b0b] dark:bg-[#2c2c2a] dark:text-white'
+              : 'text-[#52514e] hover:text-[#0b0b0b] dark:text-[#c3c2b7] dark:hover:text-white'
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function App() {
+  const [mode, setMode] = useState<Mode>('compare');
   const { selectedFunds, add, remove } = useSelectedFunds();
   const schemeCodes = useMemo(() => selectedFunds.map((f) => f.schemeCode), [selectedFunds]);
   const { histories, loading, errors, retry } = useFundHistories(schemeCodes);
@@ -157,10 +193,19 @@ function App() {
           Mutual Fund Comparison
         </h1>
         <p className="mt-1 text-sm text-[#52514e] dark:text-[#c3c2b7]">
-          Compare the historical performance of Indian mutual funds across any date range.
+          {mode === 'compare'
+            ? 'Compare the historical performance of Indian mutual funds across any date range.'
+            : 'Replay your actual purchases into a different fund and see what they would be worth.'}
         </p>
+        <div className="mt-4">
+          <ModeToggle mode={mode} onChange={setMode} />
+        </div>
       </header>
 
+      {mode === 'what-if' ? (
+        <WhatIfView />
+      ) : (
+        <>
       <section className="mb-6 flex flex-col gap-4">
         <FundSearch onAdd={add} existingCodes={existingCodes} />
         <SelectedFundsList
@@ -225,6 +270,8 @@ function App() {
       <section>
         <ReturnsSummaryTable summaries={summaries} funds={selectedFunds} />
       </section>
+        </>
+      )}
     </div>
   );
 }
