@@ -15,8 +15,9 @@ import {
 } from 'recharts';
 import type { InverseScaleFunction } from 'recharts';
 import { useColorScheme } from '../hooks/useColorScheme';
-import { colorForIndex } from '../utils/colors';
+import { colorForIndex, deltaColor } from '../utils/colors';
 import { formatAxisDate } from '../utils/dateUtils';
+import type { FundDelta, FundNav } from '../utils/selectionDelta';
 import type { ChartPoint, ChartSelection, SelectedFund } from '../types/fund';
 
 interface ComparisonChartProps {
@@ -24,11 +25,11 @@ interface ComparisonChartProps {
   funds: SelectedFund[];
   selection: ChartSelection;
   onPick: (time: number) => void;
+  navsAt: (time: number) => FundNav[];
+  deltasBetween: (start: number, end: number) => FundDelta[];
 }
 
 interface TooltipEntry {
-  color?: string;
-  name?: string;
   value?: number | null;
 }
 
@@ -49,45 +50,132 @@ function GeometryProbe({ geometryRef }: { geometryRef: React.RefObject<ChartGeom
   return null;
 }
 
+interface ComparisonTooltipProps {
+  // Injected by Recharts; our own props below don't collide with any Tooltip prop name.
+  active?: boolean;
+  payload?: TooltipEntry[];
+  label?: string | number;
+  funds: SelectedFund[];
+  mode: 'light' | 'dark';
+  anchorTime: number | null; // non-null only while picking the second point
+  navsAt: (time: number) => FundNav[];
+  deltasBetween: (start: number, end: number) => FundDelta[];
+}
+
+function TooltipRow({
+  color,
+  name,
+  children,
+}: {
+  color: string;
+  name: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-2 py-0.5">
+      <span className="inline-block h-0.5 w-3 shrink-0" style={{ backgroundColor: color }} aria-hidden />
+      {children}
+      <span className="truncate text-[#52514e] dark:text-[#c3c2b7]">{name}</span>
+    </div>
+  );
+}
+
+// Shows raw NAVs by default, and switches to "% change since the anchor" only while a comparison
+// is being picked — a live preview of the number the panel will report on the second click.
+// Both readouts come from selectionDelta.ts, so the preview and the committed panel always agree.
 function ComparisonTooltip({
   active,
   payload,
   label,
-}: {
-  active?: boolean;
-  payload?: TooltipEntry[];
-  label?: number;
-}) {
+  funds,
+  mode,
+  anchorTime,
+  navsAt,
+  deltasBetween,
+}: ComparisonTooltipProps) {
+  // Recharts renders `content` even when the box is hidden (filterNull leaves payload empty when
+  // every series is null at this row), so this guard is what actually suppresses it.
   if (!active || !payload || payload.length === 0) return null;
-  const rows = payload.filter((entry) => entry.value !== null && entry.value !== undefined);
-  if (rows.length === 0) return null;
+  if (typeof label !== 'number') return null;
 
-  return (
+  const colorByCode = new Map(funds.map((f) => [f.schemeCode, colorForIndex(f.colorIndex, mode)]));
+  const colorFor = (code: number) => colorByCode.get(code) ?? 'transparent';
+
+  const wrap = (header: React.ReactNode, body: React.ReactNode) => (
     <div className="rounded-lg border border-[#e1e0d9] bg-[#fcfcfb] px-3 py-2 text-sm shadow-lg dark:border-[#2c2c2a] dark:bg-[#1a1a19]">
-      <p className="mb-1.5 text-xs text-[#898781]">{label !== undefined ? formatAxisDate(label) : ''}</p>
-      {rows
-        .slice()
-        .sort((a, b) => (b.value ?? 0) - (a.value ?? 0))
-        .map((entry, idx) => (
-          <div key={idx} className="flex items-center gap-2 py-0.5">
-            <span
-              className="inline-block h-0.5 w-3 shrink-0"
-              style={{ backgroundColor: entry.color }}
-              aria-hidden
-            />
-            <span className="font-semibold tabular-nums text-[#0b0b0b] dark:text-white">
-              {entry.value?.toFixed(2)}%
-            </span>
-            <span className="truncate text-[#52514e] dark:text-[#c3c2b7]">{entry.name}</span>
-          </div>
-        ))}
+      {header}
+      {body}
     </div>
+  );
+
+  // Hovering the anchor itself is a zero-width span — fall back to NAVs rather than a column of +0.00%.
+  const isPreviewingDelta = anchorTime !== null && label !== anchorTime;
+
+  if (isPreviewingDelta) {
+    const deltas = deltasBetween(Math.min(anchorTime, label), Math.max(anchorTime, label));
+    const valued = deltas
+      .filter((d): d is Extract<FundDelta, { kind: 'ok' | 'partial' }> => d.kind === 'ok' || d.kind === 'partial')
+      .sort((a, b) => b.pctChange - a.pctChange);
+    const rest = deltas.filter((d) => d.kind !== 'ok' && d.kind !== 'partial');
+    if (valued.length === 0 && rest.length === 0) return null;
+
+    return wrap(
+      <p className="mb-1.5 text-xs text-[#898781]">
+        {formatAxisDate(label)} <span className="opacity-70">· vs {formatAxisDate(anchorTime)}</span>
+      </p>,
+      <>
+        {valued.map((d) => (
+          <TooltipRow key={d.schemeCode} color={colorFor(d.schemeCode)} name={d.name}>
+            <span
+              className="font-semibold tabular-nums"
+              style={{ color: deltaColor(d.pctChange, mode) }}
+            >
+              {d.pctChange >= 0 ? '+' : ''}
+              {d.pctChange.toFixed(2)}%
+            </span>
+          </TooltipRow>
+        ))}
+        {rest.map((d) => (
+          <TooltipRow key={d.schemeCode} color={colorFor(d.schemeCode)} name={d.name}>
+            <span className="text-xs text-[#898781]">{d.kind === 'no-update' ? 'no update' : '—'}</span>
+          </TooltipRow>
+        ))}
+      </>,
+    );
+  }
+
+  const navs = navsAt(label);
+  if (navs.length === 0) return null;
+  // Fund order, not value order: NAVs across funds priced at 104 vs 1247 don't rank meaningfully.
+  const order = new Map(funds.map((f, i) => [f.schemeCode, i]));
+  const rows = navs
+    .slice()
+    .sort((a, b) => (order.get(a.schemeCode) ?? 0) - (order.get(b.schemeCode) ?? 0));
+
+  return wrap(
+    <p className="mb-1.5 text-xs text-[#898781]">{formatAxisDate(label)}</p>,
+    <>
+      {rows.map((row) => (
+        <TooltipRow key={row.schemeCode} color={colorFor(row.schemeCode)} name={row.name}>
+          <span className="font-semibold tabular-nums text-[#0b0b0b] dark:text-white">
+            {row.nav.toFixed(2)}
+          </span>
+        </TooltipRow>
+      ))}
+    </>,
   );
 }
 
 const DRAG_TOLERANCE_PX = 4;
 
-export function ComparisonChart({ chartData, funds, selection, onPick }: ComparisonChartProps) {
+export function ComparisonChart({
+  chartData,
+  funds,
+  selection,
+  onPick,
+  navsAt,
+  deltasBetween,
+}: ComparisonChartProps) {
   const mode = useColorScheme();
   const gridColor = mode === 'dark' ? '#2c2c2a' : '#e1e0d9';
   const axisColor = '#898781';
@@ -214,9 +302,17 @@ export function ComparisonChart({ chartData, funds, selection, onPick }: Compari
               tickLine={false}
               axisLine={false}
             />
-            {/* Suppressed mid-pick: it reports range-baselined values, a different quantity
-                from the delta the user is in the middle of selecting. */}
-            {!isPicking && <Tooltip content={<ComparisonTooltip />} />}
+            <Tooltip
+              content={
+                <ComparisonTooltip
+                  funds={funds}
+                  mode={mode}
+                  anchorTime={selection.phase === 'picking' ? selection.anchor : null}
+                  navsAt={navsAt}
+                  deltasBetween={deltasBetween}
+                />
+              }
+            />
             {funds.length > 1 && <Legend wrapperStyle={{ fontSize: 13 }} />}
 
             {/* ifOverflow="hidden" on all three: the "discard" default silently drops the whole

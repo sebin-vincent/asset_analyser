@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FundSearch } from './components/FundSearch';
 import { SelectedFundsList } from './components/SelectedFundsList';
 import { DateRangePicker } from './components/DateRangePicker';
@@ -12,7 +12,7 @@ import { toAscendingNavPoints, formatAxisDate } from './utils/dateUtils';
 import { resolveEffectiveRange, computePctGrowthSeries, type EffectiveRange } from './utils/normalize';
 import { mergeToChartData, type FundSeriesInput } from './utils/mergeSeries';
 import { buildReturnSummary } from './utils/returns';
-import { computeSelectionDeltas, type FundDeltaInput } from './utils/selectionDelta';
+import { computeNavsAt, computeSelectionDeltas, type FundDeltaInput } from './utils/selectionDelta';
 import type { ChartSelection, DateRange, FundReturnSummary } from './types/fund';
 
 function defaultRange(): DateRange {
@@ -126,8 +126,9 @@ function App() {
     });
   };
 
-  const selectionDeltas = useMemo(() => {
-    if (selection.phase !== 'locked') return null;
+  // Shared by the committed panel and by the chart's tooltip, so both resolve every number
+  // through the same module and cannot disagree.
+  const deltaInputs = useMemo(() => {
     const inputs: FundDeltaInput[] = [];
     for (const fund of selectedFunds) {
       const points = pointsByCode.get(fund.schemeCode);
@@ -135,8 +136,19 @@ function App() {
       if (!points || !effectiveRange) continue;
       inputs.push({ fund, points, effectiveRange });
     }
-    return computeSelectionDeltas(inputs, selection.start, selection.end);
-  }, [selection, selectedFunds, pointsByCode, effectiveRangeByCode]);
+    return inputs;
+  }, [selectedFunds, pointsByCode, effectiveRangeByCode]);
+
+  const navsAt = useCallback((time: number) => computeNavsAt(deltaInputs, time), [deltaInputs]);
+  const deltasBetween = useCallback(
+    (start: number, end: number) => computeSelectionDeltas(deltaInputs, start, end),
+    [deltaInputs],
+  );
+
+  const selectionDeltas = useMemo(() => {
+    if (selection.phase !== 'locked') return null;
+    return computeSelectionDeltas(deltaInputs, selection.start, selection.end);
+  }, [selection, deltaInputs]);
 
   return (
     <div className="mx-auto min-h-screen max-w-5xl px-6 py-10">
@@ -182,6 +194,8 @@ function App() {
             funds={fundsWithData}
             selection={selection}
             onPick={handlePick}
+            navsAt={navsAt}
+            deltasBetween={deltasBetween}
           />
         )}
       </section>

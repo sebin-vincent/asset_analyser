@@ -52,6 +52,23 @@ Clicking two points on the chart shades the span and shows every fund's change b
 
 Recharts gotchas hit here: `ReferenceArea`/`ReferenceLine` default to `ifOverflow="discard"`, which *silently* drops the element when an endpoint leaves the domain — always set `"hidden"`. `ReferenceLine` defaults to `zIndex:400`, tying with `<Line>` and resolving by DOM order, so it's set explicitly to 450.
 
+## Tooltip: NAV by default, delta only mid-pick
+
+The hover tooltip switches on the selection phase, and this is deliberate — the range-start percentage is an artefact of how the chart is normalized, not a number anyone asked for:
+
+| Phase | Tooltip shows |
+|---|---|
+| `idle` / `locked` | each fund's **NAV** (fund-list order — NAVs at 104 vs 1247 don't rank meaningfully) |
+| `picking` | each fund's **% change since the anchor**, sorted descending, headed `{date} · vs {anchor date}` |
+
+Both readouts come from [selectionDelta.ts](src/utils/selectionDelta.ts) via `navsAt` / `deltasBetween` callbacks that `App` builds over one shared `deltaInputs` memo. That's the point: the mid-pick preview and the panel that appears on the second click are the *same computation*, so they can't drift. Verified by hovering a date, committing there, and diffing the two — they must be identical. `resolveNavAt` is the shared primitive; don't add a second NAV-lookup path.
+
+Two traps here:
+- **Recharts renders custom tooltip `content` even when the box is invisible.** With the default `filterNull: true`, a row where every series is `null` gives `payload: []` and the wrapper gets `visibility: hidden` — but your component still mounts and runs. Keep the `if (!active || !payload?.length) return null` guard.
+- Props you set on the `content` element are **overwritten** by Recharts' injected ones on name collision (`active`, `payload`, `label`, `coordinate`, and every resolved Tooltip prop such as `formatter`, `offset`, `separator`). The current custom prop names avoid all of them.
+
+Hovering the anchor itself falls back to NAV mode rather than rendering a column of `+0.00%`, and `no-update` rows render as "no update" for the same reason the panel does.
+
 ## Conventions worth preserving
 
 - **Fetching is keyed only by `schemeCode`, never by date range.** The full history is fetched once and all range slicing happens client-side in `useMemo`. Changing the date range must never trigger a network call.
@@ -76,4 +93,7 @@ Vite serves the TS modules directly, so the real (not reimplemented) pure module
 
 A good smoke test: add two large-cap funds from different houses (e.g. "HDFC Large Cap Fund Growth Direct" and "SBI Large Cap Fund Direct Growth"), check 1Y and Max render distinct lines with a legend, then set the range to a weekend to confirm the empty/degenerate-range handling. For the selection feature, cross-check one fund's delta against the returns table by setting the date range to the two selected dates — they must agree exactly.
 
-Note: the browser pane's emulated `prefers-color-scheme` toggle changes `matchMedia().matches` but does **not** dispatch `change` to existing listeners, so already-mounted components keep their old theme. Reload after switching, or you'll chase a phantom `useColorScheme` bug.
+Two browser-pane quirks that will cost you an hour each if you don't know them:
+
+- **`requestAnimationFrame` never fires** — the pane doesn't composite (which is also why screenshots fail). Recharts rAF-throttles `mousemove`, so **the tooltip cannot be activated by a synthetic hover** until you shim it: `window.requestAnimationFrame = cb => setTimeout(() => cb(performance.now()), 0)`. Clicks are unaffected because the selection resolver is deliberately synchronous. Nothing is broken in the app when this happens — don't go looking for a tooltip bug.
+- The emulated `prefers-color-scheme` toggle changes `matchMedia().matches` but does **not** dispatch `change` to existing listeners, so already-mounted components keep their old theme. Reload after switching, or you'll chase a phantom `useColorScheme` bug.
