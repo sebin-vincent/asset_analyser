@@ -7,6 +7,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "npm run lint && tsc -b && npm run test",
     "preview": "vite preview"
   },
   "dependencies": {

@@ -8,9 +8,9 @@ Frontend-only React app for comparing the historical performance of Indian mutua
 npm run dev      # Vite dev server on :5173
 npm run build    # tsc -b && vite build
 npm run lint     # oxlint
+npm test         # vitest run
+npm run check    # lint + tsc -b + test — the pre-push gate
 ```
-
-There is no test suite yet. `src/utils/` is written as pure functions specifically so it can be unit-tested without React or Recharts — that's the natural place to start if adding tests.
 
 ## Stack
 
@@ -84,6 +84,33 @@ Hovering the anchor itself falls back to NAV mode rather than rendering a column
 Two deliberate placements:
 - The selection's **hover preview** state lives inside `ComparisonChart`, not `App` — it updates at pointer rate, and in `App` it would re-render the search box, fund list, date picker and table on every mouse move.
 - `effectiveRangeByCode` is computed once in `App`'s main `useMemo` and passed to both the summary table and the delta panel, so the chart and the panel cannot disagree about which slice of a fund's history is in play. The selection clears whenever `chartData` changes identity (covers range changes, fund removal, and the chart emptying), which is what prevents a locked selection from stranding against a domain that no longer contains it.
+
+## Tests
+
+Vitest, node environment, `src/utils/*.test.ts` only — configured in `vitest.config.ts` (kept separate from `vite.config.ts` so the react/tailwind plugins don't load). `tsconfig.app.json` includes `src`, so `tsc -b` type-checks the specs too.
+
+The suite is deliberately narrow, and the selection rule matters more than the coverage: **this app's failure mode is a plausible wrong number, not a visible break.** A chart reading `+367%` instead of `+256%` renders perfectly. So the tests cover the pure math where a bug is invisible, and skip components, Recharts, `mfApi.ts`, `fundHistoryCache.ts` and `colors.ts`, where a bug is either visible or the test would just assert a constant against itself.
+
+The rule for adding one: **it must fail for a reason a human wouldn't spot in review.** Prefer an independent oracle — a second route to the same number — over restating the implementation with literals. A test that recomputes `(end/start - 1) * 100` and asserts the function returns it will keep passing through the exact refactor that breaks the app.
+
+What's pinned, and why each earns its place:
+
+- **[pipeline.test.ts](src/utils/pipeline.test.ts)** — the cross-module contract, and the highest-value file. Runs the real chain (`toAscendingNavPoints` → `resolveEffectiveRange` → `computePctGrowthSeries` → `mergeToChartData`), then asserts `computeSelectionDeltas` agrees with an oracle derived from the *actual plotted values in `chartData`*. Four modules have to stay mutually consistent for it to pass. It also pins that the chart's flat forward-filled segment and the panel's `no-update` verdict describe the same fact.
+- **[selectionDelta.test.ts](src/utils/selectionDelta.test.ts)** — the oracle `((1 + p2/100) / (1 + p1/100) - 1) * 100`; a fixture where the naive `p2 - p1` **inverts which fund won** (`INVERSION_A`/`INVERSION_B`); `no-update` asserted via the *absence* of a `pctChange` key; `partial`/`unavailable`; a sweep proving no non-finite percentage ever escapes; and the tooltip↔panel agreement that `computeNavsAt` and `computeSelectionDeltas` can't drift.
+- **[normalize.test.ts](src/utils/normalize.test.ts)** — the stale-fund guard (the original `+0.00%` bug), weekend snapping vs. genuine partial range, baseline is exactly `0`.
+- **[mergeSeries.test.ts](src/utils/mergeSeries.test.ts)** — forward-fill is the *previous* value, not an interpolated midpoint; leading nulls; and **no trailing nulls**, which `no-update` depends on for its meaning.
+- **[dateUtils.test.ts](src/utils/dateUtils.test.ts)** — `DD-MM` order, UTC-midnight pinned to a hardcoded epoch literal (so a switch to local-time parsing fails on any machine), zero NAVs kept while `NaN` is dropped, and every `findIndexAtOrBefore` boundary.
+- **[returns.test.ts](src/utils/returns.test.ts)** — CAGR against a hand-computed answer, and `null` under a day.
+
+Fixtures live in [navData.ts](src/utils/__fixtures__/navData.ts) as **raw mfapi-shaped rows** (newest-first, string NAVs, `DD-MM-YYYY`), not pre-parsed points, so tests exercise the real parse and can't drift from the API's actual shape.
+
+**A passing suite proves nothing until you've watched it fail.** These three mutations were each applied and reverted; if you change this code, they should still go red:
+
+| Mutation | Expected failures |
+|---|---|
+| `pctChange` becomes the difference of the two range-baselined percentages | 5, incl. the oracle, the ranking-inversion test and the pipeline contract |
+| Delete the `points[last].time < rangeStart` guard in `resolveEffectiveRange` | 1 — the stale-fund test |
+| `start.index === end.index` returns `pctChange: 0` instead of `no-update` | 2 — the `no-update` test and the pipeline contract |
 
 ## Verifying changes
 
