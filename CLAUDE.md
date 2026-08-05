@@ -1,4 +1,4 @@
-# Mutual Fund Comparison
+# Asset Analyser
 
 Frontend-only React app for comparing Indian mutual funds, in two modes toggled at the top of the page:
 
@@ -98,14 +98,14 @@ Facts about the CSV that the code depends on:
 ## Conventions worth preserving
 
 - **Fetching is keyed only by `schemeCode`, never by date range.** The full history is fetched once and all range slicing happens client-side in `useMemo`. Changing the date range must never trigger a network call.
-- **Cache is two-tier** ([fundHistoryCache.ts](src/cache/fundHistoryCache.ts)): in-memory `Map`, then `localStorage` under `mf-cache:{schemeCode}`. An entry is reused as-is if fetched today, otherwise fully refetched — historical NAVs are immutable, only the latest entry changes, and there's no delta endpoint. Removing a fund does **not** evict its cache, so re-adding is instant.
+- **Cache is two-tier** ([fundHistoryCache.ts](src/cache/fundHistoryCache.ts)): in-memory `Map`, then `localStorage` under `aa-cache:{schemeCode}`. An entry is reused as-is if fetched today, otherwise fully refetched — historical NAVs are immutable, only the latest entry changes, and there's no delta endpoint. Removing a fund does **not** evict its cache, so re-adding is instant.
 - **Colors are assigned by fixed slot index, never by list position.** `SelectedFund.colorIndex` is set at add-time to the next unused slot and stored; removing a fund must not repaint the survivors. The palette in [colors.ts](src/utils/colors.ts) is a CVD-validated fixed order with separate light/dark steps — assign in order, don't cycle or generate hues.
 - **Text never wears the series color.** Identity comes from a colored swatch/line-key *beside* the text; labels and values use the ink tokens. Light hues (yellow, aqua) are illegible as text on the light surface.
 - Colors are hardcoded as Tailwind arbitrary values (`text-[#0b0b0b]`, `dark:text-white`) rather than theme tokens. Fine at this size; if the palette grows, promote them to CSS custom properties.
 
 ## State
 
-`App.tsx` owns three pieces of state: `selectedFunds` (persisted to `localStorage` under `mf-selected-funds`), `dateRange`, and the committed two-point `selection`. Everything else — parsed points, chart data, summaries, per-fund deltas, the "Max" preset bound — is derived via `useMemo`. Keep it that way; there's no reason for this app to need a state library.
+`App.tsx` owns three pieces of state: `selectedFunds` (persisted to `localStorage` under `aa-selected-funds`), `dateRange`, and the committed two-point `selection`. Everything else — parsed points, chart data, summaries, per-fund deltas, the "Max" preset bound — is derived via `useMemo`. Keep it that way; there's no reason for this app to need a state library.
 
 Two deliberate placements:
 - The selection's **hover preview** state lives inside `ComparisonChart`, not `App` — it updates at pointer rate, and in `App` it would re-render the search box, fund list, date picker and table on every mouse move.

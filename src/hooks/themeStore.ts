@@ -5,7 +5,7 @@
 // it without App having to pass a `mode` prop down through everything.
 export type ThemePreference = 'light' | 'dark' | 'auto';
 
-const STORAGE_KEY = 'mf-theme';
+const STORAGE_KEY = 'aa-theme';
 const listeners = new Set<() => void>();
 
 function isPreference(value: string | null): value is ThemePreference {

@@ -1,4 +1,14 @@
-# React + TypeScript + Vite
+# Asset Analyser
+
+Frontend-only React app for comparing Indian mutual funds and replaying tradebook purchases into alternative funds.
+
+```bash
+npm run dev      # Vite dev server on :5173
+npm run build    # tsc -b && vite build
+npm run lint     # oxlint
+npm test         # vitest run
+npm run check    # lint + tsc -b + test — the pre-push gate
+```
 
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 

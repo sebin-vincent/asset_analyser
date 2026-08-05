@@ -121,7 +121,7 @@ function Wordmark() {
         />
         <circle cx="25" cy="8" r="2.3" fill="var(--plate)" />
       </svg>
-      Fund Comparison
+      Asset Analyser
     </span>
   );
 }
@@ -268,7 +268,7 @@ function App() {
 
       <div className="mx-auto max-w-6xl px-6 py-8">
         <header className="mb-6">
-          <h1 className="text-2xl font-semibold text-ink">Mutual Fund Comparison</h1>
+          <h1 className="text-2xl font-semibold text-ink">Asset Analyser</h1>
           <p className="mt-1 max-w-2xl text-sm text-ink-2">
             {mode === 'compare'
               ? 'Compare the historical performance of Indian mutual funds across any date range.'

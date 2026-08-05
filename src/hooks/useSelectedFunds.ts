@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { SchemeSearchResult, SelectedFund } from '../types/fund';
 
-const STORAGE_KEY = 'mf-selected-funds';
+const STORAGE_KEY = 'aa-selected-funds';
 
 function loadInitial(): SelectedFund[] {
   try {

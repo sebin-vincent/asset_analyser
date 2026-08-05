@@ -9,7 +9,7 @@ import {
 const getServerSnapshot = (): ThemePreference => 'auto';
 
 // The explicit light/dark/auto choice from the app bar's theme control, persisted
-// under `mf-theme`. Separate from useColorScheme, which reports the *resolved*
+// under `aa-theme`. Separate from useColorScheme, which reports the *resolved*
 // mode — this reports the *preference*, so the control itself knows which of its
 // three options is active.
 export function useThemePreference(): [ThemePreference, (next: ThemePreference) => void] {

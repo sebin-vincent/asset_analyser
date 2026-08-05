@@ -9,7 +9,7 @@ interface CacheEntry {
 const memoryCache = new Map<number, FundHistoryResponse>();
 
 function storageKey(schemeCode: number): string {
-  return `mf-cache:${schemeCode}`;
+  return `aa-cache:${schemeCode}`;
 }
 
 function isFromToday(fetchedAt: string): boolean {
