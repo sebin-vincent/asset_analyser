@@ -1,3 +1,4 @@
+import { Flag } from './Flag';
 import { useColorScheme } from '../hooks/useColorScheme';
 import { colorForIndex } from '../utils/colors';
 import type { SelectedFund } from '../types/fund';
@@ -22,11 +23,7 @@ export function SelectedFundsList({
   const mode = useColorScheme();
 
   if (funds.length === 0) {
-    return (
-      <p className="text-sm text-[#898781]">
-        No funds selected yet — search above and add a few to compare.
-      </p>
-    );
+    return <p className="text-sm text-ink-3">No funds selected yet — search above and add a few to compare.</p>;
   }
 
   return (
@@ -38,39 +35,29 @@ export function SelectedFundsList({
         return (
           <li
             key={fund.schemeCode}
-            className="flex max-w-xs items-center gap-2 rounded-full border border-[#e1e0d9] bg-[#fcfcfb] py-1.5 pl-3 pr-2 text-sm dark:border-[#2c2c2a] dark:bg-[#1a1a19]"
+            className="flex max-w-xs items-center gap-2 rounded-full border border-line bg-ground py-1.5 pr-2 pl-3 text-sm"
           >
-            <span
-              className="h-2.5 w-2.5 shrink-0 rounded-full"
-              style={{ backgroundColor: color }}
-              aria-hidden
-            />
-            <span className="truncate text-[#0b0b0b] dark:text-white" title={fund.name}>
+            <span className="h-0.5 w-3 shrink-0" style={{ backgroundColor: color }} aria-hidden />
+            <span className="truncate text-ink" title={fund.name}>
               {fund.name}
             </span>
-            {loading[fund.schemeCode] && (
-              <span className="shrink-0 text-xs text-[#898781]">loading…</span>
-            )}
+            {loading[fund.schemeCode] && <span className="shrink-0 text-xs text-ink-3">loading…</span>}
             {error && (
               <button
                 type="button"
                 onClick={() => onRetry(fund.schemeCode)}
-                className="shrink-0 text-xs text-[#e34948] underline"
+                className="shrink-0 text-xs text-danger underline"
                 title={error}
               >
                 retry
               </button>
             )}
-            {note && !error && (
-              <span className="shrink-0 text-xs text-[#898781]" title={note}>
-                ⓘ
-              </span>
-            )}
+            {note && !error && <Flag title={note}>Partial</Flag>}
             <button
               type="button"
               onClick={() => onRemove(fund.schemeCode)}
               aria-label={`Remove ${fund.name}`}
-              className="shrink-0 text-[#898781] hover:text-[#0b0b0b] dark:hover:text-white"
+              className="shrink-0 rounded p-0.5 text-ink-3 hover:bg-plate-2 hover:text-ink"
             >
               ×
             </button>

@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   CartesianGrid,
-  Legend,
   Line,
   LineChart,
   ReferenceArea,
@@ -13,16 +12,18 @@ import {
   usePlotArea,
   useXAxisInverseDataSnapScale,
 } from 'recharts';
-import type { InverseScaleFunction } from 'recharts';
+import type { DotItemDotProps, InverseScaleFunction } from 'recharts';
 import { useColorScheme } from '../hooks/useColorScheme';
 import { colorForIndex, deltaColor } from '../utils/colors';
 import { formatAxisDate } from '../utils/dateUtils';
+import { formatPctSigned } from '../utils/format';
 import type { FundDelta, FundNav } from '../utils/selectionDelta';
-import type { ChartPoint, ChartSelection, SelectedFund } from '../types/fund';
+import type { ChartPoint, ChartSelection, FundReturnSummary, SelectedFund } from '../types/fund';
 
 interface ComparisonChartProps {
   chartData: ChartPoint[];
   funds: SelectedFund[];
+  summaries: FundReturnSummary[];
   selection: ChartSelection;
   onPick: (time: number) => void;
   navsAt: (time: number) => FundNav[];
@@ -32,6 +33,15 @@ interface ComparisonChartProps {
 interface TooltipEntry {
   value?: number | null;
 }
+
+// Tokens as literals: this component already switches every color by `mode` at
+// the JS level (Recharts stroke/fill props don't accept CSS custom properties),
+// so these mirror src/index.css rather than reading it — keep them in sync if
+// the palette in index.css changes.
+const TOKENS = {
+  light: { plate: '#fcfcfb', line: '#e3e2da', ink: '#0b0b0b', ink3: '#898781', acc: '#14615c' },
+  dark: { plate: '#1a1a19', line: '#2c2c2a', ink: '#f4f3ee', ink3: '#8f8d86', acc: '#4bb3aa' },
+} as const;
 
 interface ChartGeometry {
   plotArea: { x: number; y: number; width: number; height: number };
@@ -75,7 +85,7 @@ function TooltipRow({
     <div className="flex items-center gap-2 py-0.5">
       <span className="inline-block h-0.5 w-3 shrink-0" style={{ backgroundColor: color }} aria-hidden />
       {children}
-      <span className="truncate text-[#52514e] dark:text-[#c3c2b7]">{name}</span>
+      <span className="truncate text-ink-2">{name}</span>
     </div>
   );
 }
@@ -102,7 +112,7 @@ function ComparisonTooltip({
   const colorFor = (code: number) => colorByCode.get(code) ?? 'transparent';
 
   const wrap = (header: React.ReactNode, body: React.ReactNode) => (
-    <div className="rounded-lg border border-[#e1e0d9] bg-[#fcfcfb] px-3 py-2 text-sm shadow-lg dark:border-[#2c2c2a] dark:bg-[#1a1a19]">
+    <div className="rounded-lg border border-line bg-plate px-3 py-2 text-sm shadow-lg">
       {header}
       {body}
     </div>
@@ -120,24 +130,20 @@ function ComparisonTooltip({
     if (valued.length === 0 && rest.length === 0) return null;
 
     return wrap(
-      <p className="mb-1.5 text-xs text-[#898781]">
+      <p className="mb-1.5 font-mono text-xs text-ink-3">
         {formatAxisDate(label)} <span className="opacity-70">· vs {formatAxisDate(anchorTime)}</span>
       </p>,
       <>
         {valued.map((d) => (
           <TooltipRow key={d.schemeCode} color={colorFor(d.schemeCode)} name={d.name}>
-            <span
-              className="font-semibold tabular-nums"
-              style={{ color: deltaColor(d.pctChange, mode) }}
-            >
-              {d.pctChange >= 0 ? '+' : ''}
-              {d.pctChange.toFixed(2)}%
+            <span className="font-mono font-semibold tabular-nums" style={{ color: deltaColor(d.pctChange, mode) }}>
+              {formatPctSigned(d.pctChange)}
             </span>
           </TooltipRow>
         ))}
         {rest.map((d) => (
           <TooltipRow key={d.schemeCode} color={colorFor(d.schemeCode)} name={d.name}>
-            <span className="text-xs text-[#898781]">{d.kind === 'no-update' ? 'no update' : '—'}</span>
+            <span className="text-xs text-ink-3">{d.kind === 'no-update' ? 'no update' : '—'}</span>
           </TooltipRow>
         ))}
       </>,
@@ -153,13 +159,11 @@ function ComparisonTooltip({
     .sort((a, b) => (order.get(a.schemeCode) ?? 0) - (order.get(b.schemeCode) ?? 0));
 
   return wrap(
-    <p className="mb-1.5 text-xs text-[#898781]">{formatAxisDate(label)}</p>,
+    <p className="mb-1.5 font-mono text-xs text-ink-3">{formatAxisDate(label)}</p>,
     <>
       {rows.map((row) => (
         <TooltipRow key={row.schemeCode} color={colorFor(row.schemeCode)} name={row.name}>
-          <span className="font-semibold tabular-nums text-[#0b0b0b] dark:text-white">
-            {row.nav.toFixed(2)}
-          </span>
+          <span className="font-mono font-semibold tabular-nums text-ink">{row.nav.toFixed(2)}</span>
         </TooltipRow>
       ))}
     </>,
@@ -168,20 +172,51 @@ function ComparisonTooltip({
 
 const DRAG_TOLERANCE_PX = 4;
 
+// Renders nothing for every point except the series' last one, where it draws an
+// emphasized dot plus a value label — the "value rail" that lets each line name its
+// own final number without a second glance at the table. Reads cx/cy straight from
+// Recharts' own per-point layout, so it needs no geometry access of its own.
+function makeEndpointDot(lastIndex: number, color: string, plateColor: string, inkColor: string) {
+  return (props: DotItemDotProps) => {
+    const { cx, cy, index, value } = props;
+    if (cx == null || cy == null || index !== lastIndex || typeof value !== 'number') {
+      return <circle cx={cx ?? -10} cy={cy ?? -10} r={0} fill="none" />;
+    }
+    return (
+      <g>
+        <circle cx={cx} cy={cy} r={3.5} fill={color} stroke={plateColor} strokeWidth={2} />
+        <text
+          x={cx + 8}
+          y={cy + 4}
+          fontSize={11}
+          fontWeight={600}
+          fontFamily="var(--font-mono)"
+          fill={inkColor}
+        >
+          {formatPctSigned(value, 1)}
+        </text>
+      </g>
+    );
+  };
+}
+
 export function ComparisonChart({
   chartData,
   funds,
+  summaries,
   selection,
   onPick,
   navsAt,
   deltasBetween,
 }: ComparisonChartProps) {
   const mode = useColorScheme();
-  const gridColor = mode === 'dark' ? '#2c2c2a' : '#e1e0d9';
-  const axisColor = '#898781';
-  // Neutral rather than an accent hue, so the band can never be mistaken for a series color.
-  const bandFill = mode === 'dark' ? '#ffffff' : '#0b0b0b';
-  const bandOpacity = mode === 'dark' ? 0.08 : 0.06;
+  const t = TOKENS[mode];
+  const gridColor = t.line;
+  const axisColor = t.ink3;
+  // The accent, not a series hue: petrol never appears in CATEGORICAL_PALETTE, so
+  // the band can't be mistaken for a fund's own color.
+  const bandFill = t.acc;
+  const bandOpacity = 0.09;
 
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const geometryRef = useRef<ChartGeometry | null>(null);
@@ -270,9 +305,65 @@ export function ComparisonChart({
         ? 'Click two dates on the chart to compare the change between them'
         : null;
 
+  // Leader/trailer/spread read straight off the already-computed return summaries —
+  // no new math, just min/max over numbers the returns table shows too. Unlike the
+  // two-point selection delta (which must never subtract two range-baselined
+  // percentages), this *is* a plain difference: two independent, already-correct
+  // total-return percentages, hence labelled in percentage points, not percent.
+  const sortedSummaries = [...summaries].sort((a, b) => b.absoluteReturnPct - a.absoluteReturnPct);
+  const leader = sortedSummaries[0] ?? null;
+  const trailer = sortedSummaries.length > 1 ? sortedSummaries[sortedSummaries.length - 1] : null;
+  const lastIndex = chartData.length - 1;
+
   return (
-    <div>
-      <p className="mb-1 h-4 text-xs text-[#898781]">{hint}</p>
+    <div className="overflow-hidden rounded-lg border border-line bg-plate">
+      <div className="flex flex-wrap items-end gap-5 border-b border-line px-4 py-3">
+        {leader && (
+          <div className="flex flex-col gap-0.5">
+            <span className="font-mono text-[10px] tracking-wider text-ink-3 uppercase">Leading</span>
+            <span
+              className="font-mono text-lg font-semibold tabular-nums"
+              style={{ color: deltaColor(leader.absoluteReturnPct, mode) }}
+            >
+              {formatPctSigned(leader.absoluteReturnPct)}
+            </span>
+            <span className="max-w-[22ch] truncate text-xs text-ink-2" title={leader.name}>
+              {leader.name}
+            </span>
+          </div>
+        )}
+        {trailer && (
+          <>
+            <div className="h-8 w-px self-center bg-line" aria-hidden />
+            <div className="flex flex-col gap-0.5">
+              <span className="font-mono text-[10px] tracking-wider text-ink-3 uppercase">Trailing</span>
+              <span
+                className="font-mono text-lg font-semibold tabular-nums"
+                style={{ color: deltaColor(trailer.absoluteReturnPct, mode) }}
+              >
+                {formatPctSigned(trailer.absoluteReturnPct)}
+              </span>
+              <span className="max-w-[22ch] truncate text-xs text-ink-2" title={trailer.name}>
+                {trailer.name}
+              </span>
+            </div>
+            <div className="h-8 w-px self-center bg-line" aria-hidden />
+            <div className="flex flex-col gap-0.5">
+              <span className="font-mono text-[10px] tracking-wider text-ink-3 uppercase">Spread</span>
+              <span className="font-mono text-lg font-semibold tabular-nums text-ink">
+                {(leader.absoluteReturnPct - trailer.absoluteReturnPct).toFixed(2)} pp
+              </span>
+            </div>
+          </>
+        )}
+        {hint && (
+          <p className="ml-auto flex items-center gap-1.5 text-xs text-ink-3">
+            {hint}
+            {isPicking && <kbd className="rounded border border-line px-1 font-mono text-[10px]">Esc</kbd>}
+          </p>
+        )}
+      </div>
+
       <div
         ref={wrapperRef}
         onPointerDown={handlePointerDown}
@@ -282,7 +373,7 @@ export function ComparisonChart({
         className={`select-none ${interactive ? 'cursor-crosshair' : ''}`}
       >
         <ResponsiveContainer width="100%" height={420}>
-          <LineChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+          <LineChart data={chartData} margin={{ top: 12, right: 72, left: 0, bottom: 0 }}>
             <GeometryProbe geometryRef={geometryRef} />
             <CartesianGrid stroke={gridColor} strokeDasharray="0" vertical={false} />
             <XAxis
@@ -291,14 +382,14 @@ export function ComparisonChart({
               domain={['dataMin', 'dataMax']}
               tickFormatter={(v: number) => formatAxisDate(v)}
               stroke={axisColor}
-              tick={{ fill: axisColor, fontSize: 12 }}
+              tick={{ fill: axisColor, fontSize: 12, fontFamily: 'var(--font-mono)' }}
               tickLine={false}
               axisLine={{ stroke: gridColor }}
             />
             <YAxis
               tickFormatter={(v: number) => `${v}%`}
               stroke={axisColor}
-              tick={{ fill: axisColor, fontSize: 12 }}
+              tick={{ fill: axisColor, fontSize: 12, fontFamily: 'var(--font-mono)' }}
               tickLine={false}
               axisLine={false}
             />
@@ -313,7 +404,6 @@ export function ComparisonChart({
                 />
               }
             />
-            {funds.length > 1 && <Legend wrapperStyle={{ fontSize: 13 }} />}
 
             {/* ifOverflow="hidden" on all three: the "discard" default silently drops the whole
                 element the moment an endpoint falls outside the domain. */}
@@ -347,7 +437,7 @@ export function ComparisonChart({
                 name={fund.name}
                 stroke={colorForIndex(fund.colorIndex, mode)}
                 strokeWidth={2}
-                dot={false}
+                dot={makeEndpointDot(lastIndex, colorForIndex(fund.colorIndex, mode), t.plate, t.ink)}
                 connectNulls={false}
                 isAnimationActive={false}
               />
@@ -355,6 +445,24 @@ export function ComparisonChart({
           </LineChart>
         </ResponsiveContainer>
       </div>
+
+      {/* HTML legend rather than Recharts' <Legend>: that component colors the label
+          text with the series stroke, which the project's own convention forbids —
+          identity comes from a swatch beside the text, never text wearing the color. */}
+      {funds.length > 1 && (
+        <div className="flex flex-wrap gap-x-5 gap-y-1.5 border-t border-line px-4 py-2.5">
+          {funds.map((fund) => (
+            <span key={fund.schemeCode} className="flex items-center gap-2 text-xs text-ink-2">
+              <span
+                className="h-0.5 w-3 shrink-0"
+                style={{ backgroundColor: colorForIndex(fund.colorIndex, mode) }}
+                aria-hidden
+              />
+              <span className="max-w-[220px] truncate">{fund.name}</span>
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

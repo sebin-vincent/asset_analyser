@@ -1,5 +1,147 @@
+/* Fonts: self-hosted so the build has no runtime font-CDN dependency.
+   Plex Sans carries UI text; Plex Mono carries every figure — NAV, %, ₹, dates,
+   axis ticks — anywhere digits need to line up. */
+@import '@fontsource-variable/ibm-plex-sans/wght.css';
+@import '@fontsource/ibm-plex-mono/latin-400.css';
+@import '@fontsource/ibm-plex-mono/latin-600.css';
+
 @import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   Design tokens.
+   Values are declared once here (light), overridden under the OS dark-mode
+   media query, and overridden again under the explicit theme attribute the
+   viewer's own toggle stamps on <html> — the attribute wins over the media
+   query in both directions. Components must always go through the token,
+   never a literal hex, so a theme change never requires touching a component.
+   --------------------------------------------------------------------------- */
+:root {
+  --ground: #f4f3ee; /* page — recessed, so plates float */
+  --plate: #fcfcfb; /* cards, chart, table */
+  --plate-2: #f0efec; /* table head, hover, inset */
+  --line: #e3e2da; /* borders, grid, dividers */
+  --line-strong: #cfcec4; /* dashed baselines, stronger borders */
+  --ink: #0b0b0b; /* primary text */
+  --ink-2: #52514e; /* secondary text */
+  --ink-3: #898781; /* tertiary text, axis labels */
+  --acc: #14615c; /* active state, focus, affordance */
+  --acc-hi: #0d4c48; /* hover/pressed on accent */
+  --acc-wash: #e2eeec; /* focus ring, leader row, selection band */
+  --brass: #8a6a12; /* caveat flags: partial data, gaps, "yours" */
+  --brass-wash: #f5efdd;
+  --danger: #e34948; /* error text — failed lookups, failed requests */
+  --danger-ink: #a13333; /* text inside a danger-wash alert box */
+  --danger-wash: #fdf4f4;
+  --danger-line: #f0c9c9;
+  --shadow-sm: 0 1px 2px rgba(11, 11, 11, 0.05);
+  --shadow: 0 1px 2px rgba(11, 11, 11, 0.04), 0 4px 16px -8px rgba(11, 11, 11, 0.12);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ground: #121211;
+    --plate: #1a1a19;
+    --plate-2: #232322;
+    --line: #2c2c2a;
+    --line-strong: #3d3d3a;
+    --ink: #f4f3ee;
+    --ink-2: #c3c2b7;
+    --ink-3: #8f8d86;
+    --acc: #4bb3aa;
+    --acc-hi: #6ac9c1;
+    --acc-wash: #15282a;
+    --brass: #c9a227;
+    --brass-wash: #241f10;
+    --danger: #e66767;
+    --danger-ink: #e88f8f;
+    --danger-wash: #251818;
+    --danger-line: #4a2626;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 8px 24px -12px rgba(0, 0, 0, 0.7);
+  }
+}
+
+:root[data-theme='dark'] {
+  --ground: #121211;
+  --plate: #1a1a19;
+  --plate-2: #232322;
+  --line: #2c2c2a;
+  --line-strong: #3d3d3a;
+  --ink: #f4f3ee;
+  --ink-2: #c3c2b7;
+  --ink-3: #8f8d86;
+  --acc: #4bb3aa;
+  --acc-hi: #6ac9c1;
+  --acc-wash: #15282a;
+  --brass: #c9a227;
+  --brass-wash: #241f10;
+  --danger: #e66767;
+  --danger-ink: #e88f8f;
+  --danger-wash: #251818;
+  --danger-line: #4a2626;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 8px 24px -12px rgba(0, 0, 0, 0.7);
+}
+
+:root[data-theme='light'] {
+  --ground: #f4f3ee;
+  --plate: #fcfcfb;
+  --plate-2: #f0efec;
+  --line: #e3e2da;
+  --line-strong: #cfcec4;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --ink-3: #898781;
+  --acc: #14615c;
+  --acc-hi: #0d4c48;
+  --acc-wash: #e2eeec;
+  --brass: #8a6a12;
+  --brass-wash: #f5efdd;
+  --danger: #e34948;
+  --danger-ink: #a13333;
+  --danger-wash: #fdf4f4;
+  --danger-line: #f0c9c9;
+  --shadow-sm: 0 1px 2px rgba(11, 11, 11, 0.05);
+  --shadow: 0 1px 2px rgba(11, 11, 11, 0.04), 0 4px 16px -8px rgba(11, 11, 11, 0.12);
+}
+
+/* `inline` keeps these resolved at runtime against the custom properties above,
+   rather than baked to the light value at build time — that's what lets one
+   token flip both `bg-ground` and `dark:bg-ground` for free. */
+@theme inline {
+  --color-ground: var(--ground);
+  --color-plate: var(--plate);
+  --color-plate-2: var(--plate-2);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-acc: var(--acc);
+  --color-acc-hi: var(--acc-hi);
+  --color-acc-wash: var(--acc-wash);
+  --color-brass: var(--brass);
+  --color-brass-wash: var(--brass-wash);
+  --color-danger: var(--danger);
+  --color-danger-ink: var(--danger-ink);
+  --color-danger-wash: var(--danger-wash);
+  --color-danger-line: var(--danger-line);
+}
+
+@theme {
+  --font-sans: 'IBM Plex Sans Variable', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'Cascadia Code', ui-monospace, 'SF Mono', monospace;
+}
 
 body {
   margin: 0;
+  background-color: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--acc-wash);
 }

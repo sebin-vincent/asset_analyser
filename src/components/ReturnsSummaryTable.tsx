@@ -1,6 +1,8 @@
+import { Flag } from './Flag';
 import { useColorScheme } from '../hooks/useColorScheme';
 import { colorForIndex, deltaColor } from '../utils/colors';
 import { formatAxisDate } from '../utils/dateUtils';
+import { formatPctSigned } from '../utils/format';
 import type { FundReturnSummary, SelectedFund } from '../types/fund';
 
 interface ReturnsSummaryTableProps {
@@ -14,11 +16,19 @@ export function ReturnsSummaryTable({ summaries, funds }: ReturnsSummaryTablePro
 
   if (summaries.length === 0) return null;
 
+  // Rank reflects performance; row order does not change — that stays fund-list order,
+  // same as everywhere else in the app that lists funds.
+  const rankByCode = new Map(
+    [...summaries]
+      .sort((a, b) => b.absoluteReturnPct - a.absoluteReturnPct)
+      .map((s, i) => [s.schemeCode, i + 1]),
+  );
+
   return (
-    <div className="overflow-x-auto rounded-lg border border-[#e1e0d9] dark:border-[#2c2c2a]">
+    <div className="overflow-x-auto rounded-lg border border-line bg-plate">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-[#e1e0d9] text-left text-xs text-[#898781] dark:border-[#2c2c2a]">
+          <tr className="border-b border-line bg-plate-2 text-left font-mono text-[10px] tracking-wider text-ink-3 uppercase">
             <th className="px-3 py-2 font-normal">Fund</th>
             <th className="px-3 py-2 font-normal">From</th>
             <th className="px-3 py-2 font-normal">To</th>
@@ -29,40 +39,43 @@ export function ReturnsSummaryTable({ summaries, funds }: ReturnsSummaryTablePro
         <tbody>
           {summaries.map((s) => {
             const colorIndex = colorIndexByCode.get(s.schemeCode) ?? 0;
+            const rank = rankByCode.get(s.schemeCode);
+            const isLeader = summaries.length > 1 && rank === 1;
             return (
-              <tr key={s.schemeCode} className="border-b border-[#e1e0d9] last:border-0 dark:border-[#2c2c2a]">
+              <tr
+                key={s.schemeCode}
+                className={`border-b border-line last:border-0 ${isLeader ? 'bg-acc-wash' : ''}`}
+              >
                 <td className="px-3 py-2">
                   <div className="flex items-center gap-2">
+                    <span className="w-3 shrink-0 font-mono text-xs text-ink-3">{rank}</span>
                     <span
-                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      className="h-0.5 w-3 shrink-0"
                       style={{ backgroundColor: colorForIndex(colorIndex, mode) }}
                       aria-hidden
                     />
-                    <span className="truncate text-[#0b0b0b] dark:text-white" title={s.name}>
+                    <span className="truncate text-ink" title={s.name}>
                       {s.name}
                     </span>
                     {s.isPartialRange && (
-                      <span className="shrink-0 text-xs text-[#898781]" title="Fund's data starts after the selected range start">
-                        ⓘ
-                      </span>
+                      <Flag title="Fund's data starts after the selected range start">Partial</Flag>
                     )}
                   </div>
                 </td>
-                <td className="whitespace-nowrap px-3 py-2 tabular-nums text-[#52514e] dark:text-[#c3c2b7]">
+                <td className="whitespace-nowrap px-3 py-2 font-mono tabular-nums text-ink-2">
                   {formatAxisDate(s.startDate)}
                 </td>
-                <td className="whitespace-nowrap px-3 py-2 tabular-nums text-[#52514e] dark:text-[#c3c2b7]">
+                <td className="whitespace-nowrap px-3 py-2 font-mono tabular-nums text-ink-2">
                   {formatAxisDate(s.endDate)}
                 </td>
                 <td
-                  className="whitespace-nowrap px-3 py-2 text-right font-semibold tabular-nums"
+                  className="whitespace-nowrap px-3 py-2 text-right font-mono font-semibold tabular-nums"
                   style={{ color: deltaColor(s.absoluteReturnPct, mode) }}
                 >
-                  {s.absoluteReturnPct >= 0 ? '+' : ''}
-                  {s.absoluteReturnPct.toFixed(2)}%
+                  {formatPctSigned(s.absoluteReturnPct)}
                 </td>
-                <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-[#52514e] dark:text-[#c3c2b7]">
-                  {s.cagrPct === null ? '—' : `${s.cagrPct >= 0 ? '+' : ''}${s.cagrPct.toFixed(2)}%`}
+                <td className="whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums text-ink-2">
+                  {s.cagrPct === null ? '—' : formatPctSigned(s.cagrPct)}
                 </td>
               </tr>
             );

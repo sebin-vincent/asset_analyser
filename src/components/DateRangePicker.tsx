@@ -31,8 +31,31 @@ function startOfToday(): Date {
   return d;
 }
 
+// A preset is "active" when it exactly reproduces the current range — not tracked as
+// its own state, so it can never drift from the range that's actually plotted.
+function activePresetLabel(range: DateRange, today: Date, earliestAvailable: Date | null): string | null {
+  const sameDay = (a: Date, b: Date) => a.getTime() === b.getTime();
+  if (!sameDay(range.end, today)) return null;
+  for (const preset of PRESETS) {
+    if (preset.kind === 'max') {
+      if (earliestAvailable && sameDay(range.start, earliestAvailable)) return preset.label;
+      continue;
+    }
+    if (preset.kind === 'ytd') {
+      if (sameDay(range.start, new Date(today.getFullYear(), 0, 1))) return preset.label;
+      continue;
+    }
+    const start = new Date(today);
+    if (preset.months) start.setMonth(start.getMonth() - preset.months);
+    if (preset.years) start.setFullYear(start.getFullYear() - preset.years);
+    if (sameDay(range.start, start)) return preset.label;
+  }
+  return null;
+}
+
 export function DateRangePicker({ range, onChange, earliestAvailable }: DateRangePickerProps) {
   const today = startOfToday();
+  const active = activePresetLabel(range, today, earliestAvailable);
 
   const applyPreset = (preset: Preset) => {
     if (preset.kind === 'max') {
@@ -51,36 +74,43 @@ export function DateRangePicker({ range, onChange, earliestAvailable }: DateRang
 
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <div className="flex flex-wrap gap-1">
-        {PRESETS.map((preset) => (
+      <div role="group" aria-label="Date range preset" className="flex overflow-hidden rounded-md border border-line">
+        {PRESETS.map((preset, i) => (
           <button
             key={preset.label}
             type="button"
+            aria-pressed={active === preset.label}
             onClick={() => applyPreset(preset)}
             disabled={preset.kind === 'max' && !earliestAvailable}
-            className="rounded-md px-2.5 py-1 text-sm text-[#52514e] hover:bg-[#f0efec] disabled:cursor-not-allowed disabled:opacity-40 dark:text-[#c3c2b7] dark:hover:bg-[#2c2c2a]"
+            className={`px-2.5 py-1 font-mono text-xs disabled:cursor-not-allowed disabled:opacity-40 ${
+              i > 0 ? 'border-l border-line' : ''
+            } ${
+              active === preset.label
+                ? 'bg-acc font-semibold text-white'
+                : 'bg-plate text-ink-2 hover:bg-plate-2 hover:text-ink'
+            }`}
           >
             {preset.label}
           </button>
         ))}
       </div>
 
-      <div className="flex items-center gap-2 border-l border-[#e1e0d9] pl-3 dark:border-[#2c2c2a]">
+      <div className="flex items-center gap-2 border-l border-line pl-3">
         <input
           type="date"
           value={toDateInputValue(range.start)}
           max={toDateInputValue(range.end)}
           onChange={(e) => onChange({ ...range, start: new Date(e.target.value + 'T00:00:00Z') })}
-          className="rounded-md border border-[#e1e0d9] bg-[#fcfcfb] px-2 py-1 text-sm text-[#0b0b0b] dark:border-[#2c2c2a] dark:bg-[#1a1a19] dark:text-white"
+          className="rounded-md border border-line bg-ground px-2 py-1 font-mono text-sm text-ink focus:border-acc focus:outline-none focus:ring-2 focus:ring-acc-wash"
         />
-        <span className="text-sm text-[#898781]">to</span>
+        <span className="text-sm text-ink-3">to</span>
         <input
           type="date"
           value={toDateInputValue(range.end)}
           min={toDateInputValue(range.start)}
           max={toDateInputValue(today)}
           onChange={(e) => onChange({ ...range, end: new Date(e.target.value + 'T00:00:00Z') })}
-          className="rounded-md border border-[#e1e0d9] bg-[#fcfcfb] px-2 py-1 text-sm text-[#0b0b0b] dark:border-[#2c2c2a] dark:bg-[#1a1a19] dark:text-white"
+          className="rounded-md border border-line bg-ground px-2 py-1 font-mono text-sm text-ink focus:border-acc focus:outline-none focus:ring-2 focus:ring-acc-wash"
         />
       </div>
     </div>

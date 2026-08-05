@@ -1,6 +1,8 @@
+import { Flag } from './Flag';
 import { useColorScheme } from '../hooks/useColorScheme';
 import { colorForIndex, deltaColor } from '../utils/colors';
 import { formatAxisDate } from '../utils/dateUtils';
+import { formatPctSigned } from '../utils/format';
 import type { FundDelta } from '../utils/selectionDelta';
 import type { SelectedFund } from '../types/fund';
 
@@ -42,60 +44,58 @@ export function SelectionDeltaPanel({
   };
 
   return (
-    <div className="rounded-lg border border-[#e1e0d9] bg-[#fcfcfb] dark:border-[#2c2c2a] dark:bg-[#1a1a19]">
-      <div className="flex items-center justify-between gap-3 border-b border-[#e1e0d9] px-4 py-2.5 dark:border-[#2c2c2a]">
+    <div className="rounded-lg border border-line bg-plate">
+      <div className="flex items-center justify-between gap-3 border-b border-line bg-acc-wash px-4 py-2.5">
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-          <span className="text-sm font-medium text-[#0b0b0b] dark:text-white">
+          <span className="font-mono text-sm font-medium text-ink">
             {formatAxisDate(startTime)} → {formatAxisDate(endTime)}
           </span>
-          <span className="text-xs text-[#898781]">
+          <span className="font-mono text-xs text-ink-3">
             {spanDays} {spanDays === 1 ? 'day' : 'days'}
           </span>
         </div>
         <button
           type="button"
           onClick={onClear}
-          className="shrink-0 rounded-md px-2 py-1 text-xs text-[#52514e] hover:bg-[#f0efec] dark:text-[#c3c2b7] dark:hover:bg-[#2c2c2a]"
+          className="shrink-0 rounded-md border border-line bg-plate px-2 py-1 text-xs text-ink-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acc"
         >
           Clear
         </button>
       </div>
 
-      <ul className="divide-y divide-[#e1e0d9] dark:divide-[#2c2c2a]">
+      <ul className="divide-y divide-line">
         {rows.map((delta) => (
           <li key={delta.schemeCode} className="flex items-center gap-3 px-4 py-2.5 text-sm">
             <span
-              className="h-2.5 w-2.5 shrink-0 rounded-full"
+              className="h-0.5 w-3 shrink-0"
               style={{ backgroundColor: swatchFor(delta.schemeCode) }}
               aria-hidden
             />
-            <span className="min-w-0 flex-1 truncate text-[#0b0b0b] dark:text-white" title={delta.name}>
+            <span className="min-w-0 flex-1 truncate text-ink" title={delta.name}>
               {delta.name}
             </span>
 
             {hasValue(delta) ? (
               <>
-                <span className="hidden shrink-0 tabular-nums text-xs text-[#898781] sm:inline">
+                <span className="hidden shrink-0 font-mono text-xs tabular-nums text-ink-3 sm:inline">
                   {delta.startNav.toFixed(2)} → {delta.endNav.toFixed(2)}
                 </span>
                 {delta.kind === 'partial' && (
-                  <span
-                    className="shrink-0 text-xs text-[#898781]"
+                  <Flag
                     title={`Data only from ${formatAxisDate(delta.startTime)} — this fund starts partway through the selection`}
                   >
-                    ⓘ
-                  </span>
+                    Partial
+                  </Flag>
                 )}
                 <span
-                  className="w-20 shrink-0 text-right font-semibold tabular-nums"
+                  className="w-20 shrink-0 text-right font-mono font-semibold tabular-nums"
                   style={{ color: deltaColor(delta.pctChange, mode) }}
                 >
-                  {delta.pctChange >= 0 ? '+' : ''}
-                  {delta.pctChange.toFixed(2)}%
+                  {formatPctSigned(delta.pctChange)}
                 </span>
               </>
             ) : (
-              <span className="shrink-0 text-xs text-[#898781]">
+              <span className="shrink-0 text-xs text-ink-3">
                 {delta.kind === 'no-update'
                   ? `No NAV update in this window (last priced ${formatAxisDate(delta.atTime)})`
                   : 'No data in this window'}

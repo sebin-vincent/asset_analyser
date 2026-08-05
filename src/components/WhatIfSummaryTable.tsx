@@ -1,3 +1,4 @@
+import { Flag } from './Flag';
 import { useColorScheme } from '../hooks/useColorScheme';
 import { colorForIndex, deltaColor } from '../utils/colors';
 import { hasValue, type FundSimulation } from '../utils/counterfactual';
@@ -13,6 +14,9 @@ export interface WhatIfRow {
 interface WhatIfSummaryTableProps {
   rows: WhatIfRow[];
   actualFinalValue: number | null;
+  // Same winner WhatIfChart's "Best alternative" readout names — passed down rather
+  // than re-derived, so the table and the chart header can't disagree.
+  bestAlternativeCode: number | null;
 }
 
 const UNAVAILABLE_REASON: Record<
@@ -25,11 +29,10 @@ const UNAVAILABLE_REASON: Record<
     'This fund stopped publishing a NAV before your purchases — it cannot be compared',
 };
 
-export function WhatIfSummaryTable({ rows, actualFinalValue }: WhatIfSummaryTableProps) {
+export function WhatIfSummaryTable({ rows, actualFinalValue, bestAlternativeCode }: WhatIfSummaryTableProps) {
   const mode = useColorScheme();
   if (rows.length === 0) return null;
 
-  const ink = 'text-[#52514e] dark:text-[#c3c2b7]';
   // A fund can be valid yet valued a few days behind the others if it stopped reporting recently.
   // "Value today" would be quietly wrong for it, so the row says which day it is actually from.
   const latestValuation = Math.max(
@@ -37,16 +40,19 @@ export function WhatIfSummaryTable({ rows, actualFinalValue }: WhatIfSummaryTabl
   );
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-[#e1e0d9] dark:border-[#2c2c2a]">
+    <div className="overflow-x-auto rounded-lg border border-line bg-plate">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-[#e1e0d9] text-left text-xs text-[#898781] dark:border-[#2c2c2a]">
+          <tr className="border-b border-line bg-plate-2 text-left font-mono text-[10px] tracking-wider text-ink-3 uppercase">
             <th className="px-3 py-2 font-normal">Fund</th>
             <th className="px-3 py-2 text-right font-normal">Invested</th>
             <th className="px-3 py-2 text-right font-normal">Value today</th>
             <th className="px-3 py-2 text-right font-normal">Gain</th>
             <th className="px-3 py-2 text-right font-normal">Return</th>
-            <th className="px-3 py-2 text-right font-normal" title="Annualised, accounting for when each purchase was made">
+            <th
+              className="px-3 py-2 text-right font-normal"
+              title="Annualised, accounting for when each purchase was made"
+            >
               XIRR
             </th>
             <th className="px-3 py-2 text-right font-normal">vs your fund</th>
@@ -59,81 +65,72 @@ export function WhatIfSummaryTable({ rows, actualFinalValue }: WhatIfSummaryTabl
               valued && !isActual && actualFinalValue !== null
                 ? simulation.finalValue - actualFinalValue
                 : null;
+            const isBest = !isActual && bestAlternativeCode === simulation.schemeCode;
 
             return (
               <tr
                 key={simulation.schemeCode}
-                className="border-b border-[#e1e0d9] last:border-0 dark:border-[#2c2c2a]"
+                className={`border-b border-line last:border-0 ${isBest ? 'bg-acc-wash' : ''}`}
               >
                 <td className="px-3 py-2">
                   <div className="flex items-center gap-2">
                     <span
-                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      className="h-0.5 w-3 shrink-0"
                       style={{ backgroundColor: colorForIndex(colorIndex, mode) }}
                       aria-hidden
                     />
-                    <span
-                      className="truncate text-[#0b0b0b] dark:text-white"
-                      title={simulation.name}
-                    >
+                    <span className="truncate text-ink" title={simulation.name}>
                       {simulation.name}
                     </span>
-                    {isActual && (
-                      <span className="shrink-0 rounded bg-[#f0efec] px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-[#52514e] dark:bg-[#2c2c2a] dark:text-[#c3c2b7]">
-                        yours
-                      </span>
-                    )}
+                    {isActual && <Flag>Yours</Flag>}
                     {valued && simulation.skippedAmount > 0 && (
-                      <span
-                        className="shrink-0 text-xs text-[#898781]"
+                      <Flag
                         title={`This fund did not exist for ${simulation.skippedPurchases.length} of your purchases — ${formatInr(simulation.skippedAmount)} could not be invested in it.`}
                       >
-                        ⓘ
-                      </span>
+                        Gap
+                      </Flag>
                     )}
                   </div>
                 </td>
 
                 {valued ? (
                   <>
-                    <td className={`whitespace-nowrap px-3 py-2 text-right tabular-nums ${ink}`}>
+                    <td className="whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums text-ink-2">
                       {formatInr(simulation.invested)}
                     </td>
-                    <td className="whitespace-nowrap px-3 py-2 text-right font-medium tabular-nums text-[#0b0b0b] dark:text-white">
+                    <td className="whitespace-nowrap px-3 py-2 text-right font-mono font-medium tabular-nums text-ink">
                       {formatInr(simulation.finalValue)}
                       {simulation.finalTime < latestValuation && (
-                        <span className="block text-xs font-normal text-[#898781]">
+                        <span className="block font-sans text-xs font-normal text-ink-3">
                           as of {formatAxisDate(simulation.finalTime)}
                         </span>
                       )}
                     </td>
                     <td
-                      className="whitespace-nowrap px-3 py-2 text-right tabular-nums"
+                      className="whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums"
                       style={{ color: deltaColor(simulation.gain, mode) }}
                     >
                       {formatInrSigned(simulation.gain)}
                     </td>
                     <td
-                      className="whitespace-nowrap px-3 py-2 text-right font-semibold tabular-nums"
+                      className="whitespace-nowrap px-3 py-2 text-right font-mono font-semibold tabular-nums"
                       style={{ color: deltaColor(simulation.returnPct, mode) }}
                     >
                       {formatPctSigned(simulation.returnPct)}
                     </td>
-                    <td className={`whitespace-nowrap px-3 py-2 text-right tabular-nums ${ink}`}>
+                    <td className="whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums text-ink-2">
                       {simulation.xirrPct === null ? '—' : formatPctSigned(simulation.xirrPct)}
                     </td>
-                    <td className="whitespace-nowrap px-3 py-2 text-right font-semibold tabular-nums">
+                    <td className="whitespace-nowrap px-3 py-2 text-right font-mono font-semibold tabular-nums">
                       {versus === null ? (
-                        <span className="text-[#898781]">—</span>
+                        <span className="text-ink-3">—</span>
                       ) : (
-                        <span style={{ color: deltaColor(versus, mode) }}>
-                          {formatInrSigned(versus)}
-                        </span>
+                        <span style={{ color: deltaColor(versus, mode) }}>{formatInrSigned(versus)}</span>
                       )}
                     </td>
                   </>
                 ) : (
-                  <td colSpan={6} className="px-3 py-2 text-right text-xs text-[#898781]">
+                  <td colSpan={6} className="px-3 py-2 text-right text-xs text-ink-3">
                     {UNAVAILABLE_REASON[simulation.reason]}
                   </td>
                 )}

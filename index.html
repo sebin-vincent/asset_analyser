@@ -2,8 +2,41 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      // Applies a stored explicit theme choice before first paint, so switching
+      // pages (or reloading) never flashes the wrong scheme. 'auto' stores nothing
+      // here — it just leaves prefers-color-scheme in charge.
+      (function () {
+        try {
+          var stored = localStorage.getItem('mf-theme');
+          if (stored === 'light' || stored === 'dark') {
+            document.documentElement.setAttribute('data-theme', stored);
+          }
+        } catch (e) {
+          /* localStorage unavailable (private mode, etc.) — fall back to OS scheme */
+        }
+      })();
+    </script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f4f3ee" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#121211" media="(prefers-color-scheme: dark)" />
+    <meta
+      name="description"
+      content="Compare Indian mutual funds side by side across any date range, or replay your real Zerodha purchases into a different fund to see what they'd be worth."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Mutual Fund Comparison" />
+    <meta
+      property="og:description"
+      content="Compare Indian mutual funds side by side, or replay your real purchases into a different fund."
+    />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Mutual Fund Comparison" />
+    <meta
+      name="twitter:description"
+      content="Compare Indian mutual funds side by side, or replay your real purchases into a different fund."
+    />
     <title>Mutual Fund Comparison</title>
   </head>
   <body>

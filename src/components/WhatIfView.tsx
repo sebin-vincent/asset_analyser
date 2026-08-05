@@ -137,7 +137,21 @@ export function WhatIfView() {
     }));
   }, [simulations, match]);
 
-  const actualFinalValue = actual && hasValue(actual) ? actual.finalValue : null;
+  const actualSim = actual && hasValue(actual) ? actual : null;
+  const actualFinalValue = actualSim ? actualSim.finalValue : null;
+
+  // Same `versus` figure the table's "vs your fund" column shows for each alternative,
+  // just hoisted so the chart header and the table can't disagree about which one is best.
+  const bestAlternative = useMemo(() => {
+    if (actualFinalValue === null) return null;
+    let best: { schemeCode: number; name: string; versus: number } | null = null;
+    for (const { simulation, isActual } of rows) {
+      if (isActual || !hasValue(simulation)) continue;
+      const versus = simulation.finalValue - actualFinalValue;
+      if (!best || versus > best.versus) best = { schemeCode: simulation.schemeCode, name: simulation.name, versus };
+    }
+    return best;
+  }, [rows, actualFinalValue]);
   const canAddMore = alternatives.length < MAX_ALTERNATIVES;
   const existingCodes = useMemo(
     () =>
@@ -157,8 +171,8 @@ export function WhatIfView() {
       />
 
       {tradebookFunds.length > 1 && !tradebookFund && (
-        <div className="rounded-lg border border-[#e1e0d9] bg-[#fcfcfb] p-4 dark:border-[#2c2c2a] dark:bg-[#1a1a19]">
-          <p className="mb-3 text-sm text-[#0b0b0b] dark:text-white">
+        <div className="rounded-lg border border-line bg-plate p-4">
+          <p className="mb-3 text-sm text-ink">
             That file has {tradebookFunds.length} funds in it. Which one do you want to analyse?
           </p>
           <ul className="flex flex-col gap-1.5">
@@ -167,12 +181,10 @@ export function WhatIfView() {
                 <button
                   type="button"
                   onClick={() => setSelectedIsin(fund.isin)}
-                  className="w-full rounded-md border border-[#e1e0d9] px-3 py-2 text-left text-sm hover:bg-[#f0efec] dark:border-[#2c2c2a] dark:hover:bg-[#2c2c2a]"
+                  className="w-full rounded-md border border-line px-3 py-2 text-left text-sm hover:bg-plate-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acc"
                 >
-                  <span className="block truncate text-[#0b0b0b] dark:text-white">
-                    {fund.symbol}
-                  </span>
-                  <span className="text-xs text-[#898781]">
+                  <span className="block truncate text-ink">{fund.symbol}</span>
+                  <span className="font-mono text-xs text-ink-3">
                     {fund.trades.length} {fund.trades.length === 1 ? 'purchase' : 'purchases'} ·{' '}
                     {formatInr(fund.totalInvested)}
                   </span>
@@ -184,15 +196,15 @@ export function WhatIfView() {
       )}
 
       {tradebookFund && match.status === 'searching' && (
-        <p className="text-sm text-[#898781]">Identifying this fund on mfapi…</p>
+        <p className="text-sm text-ink-3">Identifying this fund on mfapi…</p>
       )}
 
       {tradebookFund && match.status === 'error' && (
-        <p className="text-sm text-[#e34948]">Could not look up the fund: {match.message}</p>
+        <p className="text-sm text-danger">Could not look up the fund: {match.message}</p>
       )}
 
       {tradebookFund && match.status === 'not-found' && (
-        <p className="rounded-md border border-[#e1e0d9] px-3 py-2 text-sm text-[#52514e] dark:border-[#2c2c2a] dark:text-[#c3c2b7]">
+        <p className="rounded-md border border-line px-3 py-2 text-sm text-ink-2">
           Couldn't match <span className="font-medium">{tradebookFund.symbol}</span> to a scheme on
           mfapi (tried: {match.triedQueries.join(', ')}). Its NAV history is needed to chart your
           actual portfolio.
@@ -200,25 +212,31 @@ export function WhatIfView() {
       )}
 
       {match.status === 'matched' && priceCheck && (
-        <div className="rounded-lg border border-[#e1e0d9] bg-[#fcfcfb] px-4 py-3 text-sm dark:border-[#2c2c2a] dark:bg-[#1a1a19]">
-          <p className="text-[#0b0b0b] dark:text-white">
-            Matched to <span className="font-medium">{match.schemeName}</span>
-          </p>
-          <p className="mt-0.5 text-xs text-[#898781]">
-            Confirmed by ISIN {tradebookFund?.isin}. {priceCheck.matched} of {priceCheck.total}{' '}
-            purchase prices match this fund's published NAV
-            {priceCheck.unpublished > 0 &&
-              ` (${priceCheck.unpublished} predate its published history and were taken from your tradebook)`}
-            {priceCheck.mismatches.length > 0 &&
-              ` · ${priceCheck.mismatches.length} did not match`}
-            .
-          </p>
+        <div className="flex items-start gap-3 rounded-lg border border-line border-l-2 border-l-acc bg-plate px-4 py-3 text-sm">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true" className="mt-0.5 shrink-0 text-acc">
+            <circle cx="7.5" cy="7.5" r="6.6" stroke="currentColor" strokeWidth="1.3" />
+            <path d="M4.6 7.7 6.6 9.7 10.4 5.6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <div>
+            <p className="text-ink">
+              Matched to <span className="font-medium">{match.schemeName}</span>
+            </p>
+            <p className="mt-0.5 font-mono text-xs text-ink-3">
+              Confirmed by ISIN {tradebookFund?.isin}. {priceCheck.matched} of {priceCheck.total}{' '}
+              purchase prices match this fund's published NAV
+              {priceCheck.unpublished > 0 &&
+                ` (${priceCheck.unpublished} predate its published history and were taken from your tradebook)`}
+              {priceCheck.mismatches.length > 0 &&
+                ` · ${priceCheck.mismatches.length} did not match`}
+              .
+            </p>
+          </div>
         </div>
       )}
 
       {match.status === 'matched' && (
         <div>
-          <p className="mb-2 text-sm text-[#52514e] dark:text-[#c3c2b7]">
+          <p className="mb-2 text-sm text-ink-2">
             Compare against {canAddMore ? 'up to two other funds' : 'these funds'}:
           </p>
           {canAddMore && (
@@ -232,14 +250,12 @@ export function WhatIfView() {
               {alternatives.map((alt) => (
                 <li
                   key={alt.schemeCode}
-                  className="flex items-center gap-2 rounded-md border border-[#e1e0d9] px-2.5 py-1.5 text-xs dark:border-[#2c2c2a]"
+                  className="flex items-center gap-2 rounded-full border border-line bg-plate py-1 pr-2 pl-3 text-xs"
                 >
-                  <span className="max-w-xs truncate text-[#0b0b0b] dark:text-white">
-                    {alt.schemeName}
-                  </span>
-                  {loading[alt.schemeCode] && <span className="text-[#898781]">loading…</span>}
+                  <span className="max-w-xs truncate text-ink">{alt.schemeName}</span>
+                  {loading[alt.schemeCode] && <span className="text-ink-3">loading…</span>}
                   {errors[alt.schemeCode] && (
-                    <span className="text-[#e34948]">failed</span>
+                    <span className="text-danger">failed</span>
                   )}
                   <button
                     type="button"
@@ -249,7 +265,7 @@ export function WhatIfView() {
                       )
                     }
                     aria-label={`Remove ${alt.schemeName}`}
-                    className="text-[#898781] hover:text-[#0b0b0b] dark:hover:text-white"
+                    className="rounded p-0.5 text-ink-3 hover:bg-plate-2 hover:text-ink"
                   >
                     ✕
                   </button>
@@ -267,15 +283,21 @@ export function WhatIfView() {
         />
       )}
 
-      {chartData.length > 0 && actual && hasValue(actual) && (
+      {chartData.length > 0 && actualSim && (
         <>
           <WhatIfChart
             chartData={chartData}
             lines={lines}
-            totalInvested={actual.invested + actual.skippedAmount}
+            totalInvested={actualSim.invested + actualSim.skippedAmount}
+            actual={actualSim}
+            bestAlternative={bestAlternative}
           />
-          <WhatIfSummaryTable rows={rows} actualFinalValue={actualFinalValue} />
-          <p className="text-xs text-[#898781]">
+          <WhatIfSummaryTable
+            rows={rows}
+            actualFinalValue={actualFinalValue}
+            bestAlternativeCode={bestAlternative?.schemeCode ?? null}
+          />
+          <p className="text-xs text-ink-3">
             Each fund receives the same money on the same dates, priced at its own NAV that day.
             XIRR annualises the return accounting for when each purchase was made — a plain
             percentage would credit money invested last month the same as money invested a year
