@@ -13,7 +13,7 @@ function describeError(parse: Exclude<TradebookParse, { kind: 'ok' }>): string {
     case 'empty':
       return 'That file has no rows. Export your tradebook from Zerodha Console and try again.';
     case 'missing-columns':
-      return `The file is missing required columns: ${parse.columns.join(', ')}. This should be a Zerodha tradebook export (pipe-separated).`;
+      return `The file is missing required columns: ${parse.columns.join(', ')}. This should be a Zerodha tradebook export (pipe- or comma-separated).`;
     case 'contains-sells': {
       const listed = parse.rows
         .slice(0, 3)
@@ -25,7 +25,7 @@ function describeError(parse: Exclude<TradebookParse, { kind: 'ok' }>): string {
     case 'no-buys':
       return 'No purchase rows found in that file.';
     case 'bad-rows':
-      return `Could not read ${parse.lines.length} row${parse.lines.length === 1 ? '' : 's'} (line${parse.lines.length === 1 ? '' : 's'} ${parse.lines.slice(0, 5).join(', ')}). Check the quantity, price and date columns.`;
+      return `Could not read ${parse.lines.length} row${parse.lines.length === 1 ? '' : 's'} (line${parse.lines.length === 1 ? '' : 's'} ${parse.lines.slice(0, 5).join(', ')}). Check the quantity, price and date columns — quantity and price must be plain numbers, without thousand separators, and dates must be DD-MM-YYYY or YYYY-MM-DD.`;
   }
 }
 

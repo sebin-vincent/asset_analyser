@@ -41,7 +41,7 @@ export function FundSearch({ onAdd, existingCodes }: FundSearchProps) {
           }}
           onFocus={() => setIsOpen(true)}
           onBlur={() => setTimeout(() => setIsOpen(false), 150)}
-          placeholder="Search for a mutual fund (e.g. HDFC Large Cap Fund)"
+          placeholder="Search for a mutual fund (e.g. ITI Multi Cap Fund)"
           className="w-full rounded-lg border border-line bg-ground px-4 py-2.5 pl-9 text-sm text-ink placeholder:text-ink-3 focus:border-acc focus:outline-none focus:ring-2 focus:ring-acc-wash"
         />
       </div>

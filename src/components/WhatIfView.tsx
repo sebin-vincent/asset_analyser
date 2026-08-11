@@ -53,6 +53,11 @@ export function WhatIfView() {
     setAlternatives([]);
   }, []);
 
+  // Returns to the picker without touching `alternatives` — they're chosen against the actual
+  // fund's performance, not tied to which tradebook ISIN is currently selected, so a fund switch
+  // shouldn't discard them.
+  const handleSwitchFund = useCallback(() => setSelectedIsin(null), []);
+
   // Everything below is derived: parse the histories once, replay the same purchases against each
   // fund, and align the resulting rupee series onto one timeline.
   const { simulations, chartData, lines, actual, priceCheck } = useMemo(() => {
@@ -162,19 +167,45 @@ export function WhatIfView() {
     [alternativeCodes, match],
   );
 
+  // While the multi-fund picker is showing (funds loaded, none picked yet), the dropzone stays
+  // hidden — otherwise "Drop your tradebook CSV here" and "Which one do you want to analyse?"
+  // would render at once. The picker itself carries its own "upload a different file" escape.
+  const showUploader = tradebookFunds.length === 0 || !!tradebookFund;
+
   return (
     <div className="flex flex-col gap-6">
-      <TradebookUpload
-        onLoad={handleLoad}
-        onClear={handleClear}
-        loadedFund={tradebookFund}
-      />
+      {showUploader && (
+        <TradebookUpload
+          onLoad={handleLoad}
+          onClear={handleClear}
+          loadedFund={tradebookFund}
+        />
+      )}
+
+      {tradebookFunds.length > 1 && tradebookFund && (
+        <button
+          type="button"
+          onClick={handleSwitchFund}
+          className="self-start text-xs text-ink-3 underline decoration-dotted underline-offset-2 hover:text-ink"
+        >
+          Switch fund ({tradebookFunds.length} in this file)
+        </button>
+      )}
 
       {tradebookFunds.length > 1 && !tradebookFund && (
         <div className="rounded-lg border border-line bg-plate p-4">
-          <p className="mb-3 text-sm text-ink">
-            That file has {tradebookFunds.length} funds in it. Which one do you want to analyse?
-          </p>
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <p className="text-sm text-ink">
+              That file has {tradebookFunds.length} funds in it. Which one do you want to analyse?
+            </p>
+            <button
+              type="button"
+              onClick={handleClear}
+              className="shrink-0 whitespace-nowrap rounded-md px-2 py-1 text-xs text-ink-2 hover:bg-plate-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acc"
+            >
+              Upload a different file
+            </button>
+          </div>
           <ul className="flex flex-col gap-1.5">
             {tradebookFunds.map((fund) => (
               <li key={fund.isin}>

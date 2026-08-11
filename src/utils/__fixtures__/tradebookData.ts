@@ -1,7 +1,13 @@
 import type { RawNavPoint } from '../../types/fund';
 
-// The user's real Zerodha tradebook export, verbatim. Pipe-delimited, nine buys, no sells.
-// Kept as a string rather than a file read so the tests stay pure and run anywhere.
+// The user's real Zerodha tradebook export, verbatim except `trade_id`/`order_id` — replaced with
+// synthetic sequential values before this went in the repo, since nothing in the app reads those
+// two columns (confirmed: cellAt is never called for either). Everything that IS read — symbol,
+// ISIN, dates, quantities, prices — is unchanged, because the assertions depend on it.
+// Pipe-delimited, nine buys, no sells. Kept as a string rather than a file read so the tests stay
+// pure and run anywhere. tradebook.test.ts derives a comma-delimited twin from this in-test
+// (`.replace(/\|/g, ',')`) to exercise comma-delimited support, rather than maintaining a second
+// fixture.
 export const ZERODHA_TRADEBOOK_CSV = `symbol|isin|trade_date|exchange|segment|series|trade_type|auction|quantity|price|trade_id|order_id|order_execution_time
 ZERODHA MULTI ASSET PASSIVE FOF - DIRECT PLAN GROWTH|INF0R8F01117|13-08-2025|BSE|MF||buy|FALSE|999.95|10|9000000001|9000000001|13-08-2025 00:00
 ZERODHA MULTI ASSET PASSIVE FOF - DIRECT PLAN GROWTH|INF0R8F01117|26-09-2025|BSE|MF||buy|FALSE|3776.831|10.3256|9000000002|9000000002|26-09-2025 00:00
@@ -86,3 +92,36 @@ export const ZERODHA_NAV_ROWS: RawNavPoint[] = [
 export const ZERODHA_ISIN = 'INF0R8F01117';
 export const ZERODHA_SCHEME_CODE = 153757;
 export const ZERODHA_SCHEME_NAME = 'Zerodha Multi Asset Passive FoF - Direct - Growth';
+
+// A second real user's tradebook export, verbatim except `trade_id`/`order_id` — replaced with
+// random 10-digit values before this went in the repo, since nothing in the app reads those two
+// columns (confirmed: cellAt is never called for either). Everything that IS read — symbols,
+// ISINs, dates, quantities, prices — is unchanged, because the assertions depend on it.
+//
+// This file is the reason comma-delimited and ISO-dated (YYYY-MM-DD) support exist: it's
+// comma-delimited, every trade_date is ISO, `auction` is lowercase "false" (never read), and
+// order_execution_time has a "T" separator (also never read). It also has TWO ISINs — Axis
+// Nifty 100 Index Fund and the same Zerodha Multi Asset fund as the fixture above — which is
+// what exercises the multi-fund picker in WhatIfView with real data rather than a synthetic one.
+export const MULTI_FUND_ISO_TRADEBOOK_CSV = `symbol,isin,trade_date,exchange,segment,series,trade_type,auction,quantity,price,trade_id,order_id,order_execution_time
+AXIS NIFTY 100 INDEX FUND - DIRECT PLAN,INF846K01S29,2025-08-06,BSE,MF,,buy,false,2235.264000,22.367600,5651614664,7617977796,2025-08-06T00:00:00
+ZERODHA MULTI ASSET PASSIVE FOF,INF0R8F01117,2025-08-13,BSE,MF,,buy,false,999.950000,10.000000,8991171682,6603861779,2025-08-13T00:00:00
+ZERODHA MULTI ASSET PASSIVE FOF - DIRECT PLAN GROWTH,INF0R8F01117,2025-09-26,BSE,MF,,buy,false,3776.831000,10.325600,8739305570,3117193637,2025-09-26T00:00:00
+ZERODHA MULTI ASSET PASSIVE FOF - DIRECT PLAN GROWTH,INF0R8F01117,2025-11-04,BSE,MF,,buy,false,3707.810000,10.787500,2597492363,1091463410,2025-11-04T00:00:00
+ZERODHA MULTI ASSET PASSIVE FOF - DIRECT PLAN GROWTH,INF0R8F01117,2025-12-04,BSE,MF,,buy,false,4550.481000,10.987300,7687386051,9035051000,2025-12-04T00:00:00
+ZERODHA MULTI ASSET PASSIVE FOF - DIRECT PLAN GROWTH,INF0R8F01117,2026-01-02,BSE,MF,,buy,false,6135.481000,11.245500,2934132797,1542278142,2026-01-02T00:00:00
+ZERODHA MULTI ASSET PASSIVE FOF - DIRECT PLAN GROWTH,INF0R8F01117,2026-01-29,BSE,MF,,buy,false,4568.802000,11.818700,7033275747,9912487404,2026-01-29T00:00:00
+AXIS NIFTY 100 INDEX FUND DIRECT GROWTH,INF846K01S29,2026-03-02,BSE,MF,,buy,false,3290.911000,22.788900,6815819806,1027513396,2026-03-02T00:00:00
+AXIS NIFTY 100 INDEX FUND DIRECT GROWTH,INF846K01S29,2026-03-13,BSE,MF,,buy,false,2351.385000,21.263000,1977169238,6385193893,2026-03-13T00:00:00
+AXIS NIFTY 100 INDEX FUND DIRECT GROWTH,INF846K01S29,2026-06-01,BSE,MF,,buy,false,1147.948000,21.776900,9102336947,6594595419,2026-06-01T00:00:00
+AXIS NIFTY 100 INDEX FUND DIRECT GROWTH,INF846K01S29,2026-06-29,BSE,MF,,buy,false,671.164000,22.348100,5720978613,2757378152,2026-06-29T00:00:00
+ZERODHA MULTI ASSET PASSIVE FOF - DIRECT PLAN GROWTH,INF0R8F01117,2026-06-29,BSE,MF,,buy,false,2221.914000,11.251000,6442605686,1001765611,2026-06-29T00:00:00
+ZERODHA MULTI ASSET PASSIVE FOF - DIRECT PLAN GROWTH,INF0R8F01117,2026-07-09,BSE,MF,,buy,false,882.888000,11.325900,8741862952,5394852717,2026-07-09T00:00:00
+ZERODHA MULTI ASSET PASSIVE FOF - DIRECT PLAN GROWTH,INF0R8F01117,2026-07-27,BSE,MF,,buy,false,879.293000,11.372200,1374799732,8785993219,2026-07-27T00:00:00`;
+
+// Independently summed from the rows above (not read off the parser), for the totals assertion.
+export const AXIS_ISIN = 'INF846K01S29';
+export const AXIS_TOTAL_UNITS = 9696.672;
+export const AXIS_TOTAL_INVESTED = 214989.22097890003;
+export const MULTI_FUND_ZERODHA_TOTAL_UNITS = 27723.45;
+export const MULTI_FUND_ZERODHA_TOTAL_INVESTED = 306984.64969059994;

@@ -21,17 +21,22 @@ const MAX_CANDIDATES = 8;
 // name fragments and confirming each candidate against the CSV's ISIN. See fundMatch.ts for why
 // it has to work in that order — mfapi can confirm an ISIN but cannot search for one.
 export function useTradebookMatch(fund: TradebookFund | null): TradebookMatch {
-  const [match, setMatch] = useState<TradebookMatch>({ status: 'idle' });
+  // Tagged with the ISIN the match was computed for, so a fund switch can be detected during
+  // render — see the guard below.
+  const [state, setState] = useState<{ isin: string | null; match: TradebookMatch }>({
+    isin: null,
+    match: { status: 'idle' },
+  });
 
   useEffect(() => {
     if (!fund) {
-      setMatch({ status: 'idle' });
+      setState({ isin: null, match: { status: 'idle' } });
       return;
     }
 
     let cancelled = false;
     const queries = deriveSearchQueries(fund.symbol);
-    setMatch({ status: 'searching' });
+    setState({ isin: fund.isin, match: { status: 'searching' } });
 
     (async () => {
       const checked = new Set<number>();
@@ -48,18 +53,21 @@ export function useTradebookMatch(fund: TradebookFund | null): TradebookMatch {
             if (cancelled) return;
             if (!history || !isinMatches(history.meta, fund.isin)) continue;
 
-            setMatch({
-              status: 'matched',
-              schemeCode: candidate.schemeCode,
-              schemeName: history.meta.scheme_name || candidate.schemeName,
-              history,
+            setState({
+              isin: fund.isin,
+              match: {
+                status: 'matched',
+                schemeCode: candidate.schemeCode,
+                schemeName: history.meta.scheme_name || candidate.schemeName,
+                history,
+              },
             });
             return;
           }
         }
-        if (!cancelled) setMatch({ status: 'not-found', triedQueries: queries });
+        if (!cancelled) setState({ isin: fund.isin, match: { status: 'not-found', triedQueries: queries } });
       } catch (err) {
-        if (!cancelled) setMatch({ status: 'error', message: (err as Error).message });
+        if (!cancelled) setState({ isin: fund.isin, match: { status: 'error', message: (err as Error).message } });
       }
     })();
 
@@ -68,5 +76,13 @@ export function useTradebookMatch(fund: TradebookFund | null): TradebookMatch {
     };
   }, [fund]);
 
-  return match;
+  if (!fund) return { status: 'idle' };
+  // Corrected during render rather than in the effect: when `fund` changes (e.g. the "switch
+  // fund" picker), this hook re-renders with the new fund before the effect above has had a
+  // chance to run and reset `state`. Without this guard, that one frame would pair the *new*
+  // fund with the *previous* fund's match — e.g. showing fund B's chart under "Matched to
+  // <fund A's scheme>". Reporting `searching` for a one-ISIN mismatch fixes every consumer of
+  // this hook at once, rather than requiring each call site to re-derive the same check.
+  if (state.isin !== fund.isin) return { status: 'searching' };
+  return state.match;
 }
