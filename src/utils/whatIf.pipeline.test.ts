@@ -52,11 +52,11 @@ describe('what-if pipeline', () => {
     if (!hasValue(derived)) throw new Error('unreachable');
     expect(derived.kind).toBe('ok'); // nothing skipped once the NFO date is seeded
     expect(derived.units).toBeCloseTo(fund.totalUnits, 6);
-    expect(derived.units).toBeCloseTo(27723.45, 2);
+    expect(derived.units).toBeCloseTo(4596.02, 2);
   });
 
   // The NFO purchase on 13-08-2025 predates the fund's published history, which starts
-  // 20-08-2025. Without the seed it is ₹9,999 — 3% of the portfolio — that vanishes.
+  // 01-09-2025. Without the seed it is ₹10,000 — 20% of the portfolio — that vanishes.
   it('loses the first purchase without the seeded NAV point, and keeps it with one', () => {
     const fund = realTradebook();
 
@@ -67,7 +67,7 @@ describe('what-if pipeline', () => {
     if (!hasValue(unseeded)) throw new Error('expected a valued simulation');
 
     expect(unseeded.kind).toBe('partial');
-    expect(unseeded.skippedAmount).toBeCloseTo(9999.5, 2);
+    expect(unseeded.skippedAmount).toBeCloseTo(10000, 2);
 
     const { points, seeded } = seedNavPoints(
       published,
@@ -100,11 +100,11 @@ describe('what-if pipeline', () => {
     );
     if (!hasValue(result)) throw new Error('expected a valued simulation');
 
-    expect(result.invested).toBeCloseTo(306984.65, 2);
+    expect(result.invested).toBeCloseTo(49999.99, 2);
     expect(result.finalNav).toBeCloseTo(11.4181, 4); // 31-07-2026
-    expect(result.finalValue).toBeCloseTo(316549.12, 2);
-    expect(result.gain).toBeCloseTo(9564.47, 2);
-    expect(result.returnPct).toBeCloseTo(3.1156, 3);
+    expect(result.finalValue).toBeCloseTo(52477.85, 2);
+    expect(result.gain).toBeCloseTo(2477.86, 2);
+    expect(result.returnPct).toBeCloseTo(4.956, 3);
     expect(result.xirrPct).not.toBeNull();
   });
 

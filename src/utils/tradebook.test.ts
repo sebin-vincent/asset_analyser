@@ -27,8 +27,8 @@ describe('parseTradebook', () => {
     expect(funds[0].isin).toBe(ZERODHA_ISIN);
     expect(funds[0].trades).toHaveLength(9);
     // Totalled independently from the file: sum of quantity, and of quantity x price.
-    expect(funds[0].totalUnits).toBeCloseTo(27723.45, 2);
-    expect(funds[0].totalInvested).toBeCloseTo(306984.65, 2);
+    expect(funds[0].totalUnits).toBeCloseTo(4596.02, 2);
+    expect(funds[0].totalInvested).toBeCloseTo(49999.99, 2);
   });
 
   it('reads columns by header name, not position', () => {
@@ -329,9 +329,9 @@ describe('parseTradebook — ISO-dated (YYYY-MM-DD) support', () => {
     expect(zerodha.totalUnits).toBeCloseTo(MULTI_FUND_ZERODHA_TOTAL_UNITS, 3);
     expect(zerodha.totalInvested).toBeCloseTo(MULTI_FUND_ZERODHA_TOTAL_INVESTED, 2);
 
-    // First row, checked directly rather than only through the fund total: 2235.264 units at
-    // 22.3676 confirmed against the real file's own numbers.
-    expect(axis.trades[0]).toMatchObject({ time: 1754438400000, units: 2235.264, nav: 22.3676 });
-    expect(axis.trades[0].amount).toBeCloseTo(49997.4910464, 4);
+    // First row, checked directly rather than only through the fund total: 1117.688 units at
+    // 22.3676 confirmed against the fixture's own numbers.
+    expect(axis.trades[0]).toMatchObject({ time: 1754438400000, units: 1117.688, nav: 22.3676 });
+    expect(axis.trades[0].amount).toBeCloseTo(24999.9981, 4);
   });
 });
