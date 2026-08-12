@@ -2,6 +2,17 @@
   "name": "asset-analyser",
   "private": true,
   "version": "0.0.0",
+  "description": "Compare Indian mutual funds side by side, or replay your real Zerodha purchases into a different fund to see what they'd be worth.",
+  "license": "MIT",
+  "author": "Sebin Vincent",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sebin-vincent/asset_analyser.git"
+  },
+  "homepage": "https://github.com/sebin-vincent/asset_analyser#readme",
+  "engines": {
+    "node": ">=20.19"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",
