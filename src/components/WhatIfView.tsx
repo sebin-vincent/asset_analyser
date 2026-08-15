@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { FundSearch } from './FundSearch';
+import { TradebookHelp } from './TradebookHelp';
 import { TradebookUpload } from './TradebookUpload';
 import { WhatIfChart, type WhatIfLine } from './WhatIfChart';
 import { WhatIfSummaryTable, type WhatIfRow } from './WhatIfSummaryTable';
@@ -176,11 +177,16 @@ export function WhatIfView() {
   return (
     <div className="flex flex-col gap-6">
       {showUploader && (
-        <TradebookUpload
-          onLoad={handleLoad}
-          onClear={handleClear}
-          loadedFund={tradebookFund}
-        />
+        <div className="flex flex-col gap-2">
+          <div className="flex justify-end">
+            <TradebookHelp />
+          </div>
+          <TradebookUpload
+            onLoad={handleLoad}
+            onClear={handleClear}
+            loadedFund={tradebookFund}
+          />
+        </div>
       )}
 
       {tradebookFunds.length > 1 && tradebookFund && (
