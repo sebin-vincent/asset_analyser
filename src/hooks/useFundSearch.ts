@@ -51,5 +51,8 @@ export function useFundSearch(query: string) {
     return () => controller.abort();
   }, [debouncedQuery]);
 
-  return { results, loading, error, isQueryTooShort: debouncedQuery.length < MIN_QUERY_LENGTH };
+  const isQueryTooShort = debouncedQuery.length < MIN_QUERY_LENGTH;
+  const isPending = !isQueryTooShort && query.trim() !== debouncedQuery;
+
+  return { results, loading, error, isQueryTooShort, searching: isPending || loading };
 }

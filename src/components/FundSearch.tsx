@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useFundSearch } from '../hooks/useFundSearch';
+import { Spinner } from './Spinner';
 import type { SchemeSearchResult } from '../types/fund';
 
 interface FundSearchProps {
@@ -10,7 +11,7 @@ interface FundSearchProps {
 export function FundSearch({ onAdd, existingCodes }: FundSearchProps) {
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
-  const { results, loading, error, isQueryTooShort } = useFundSearch(query);
+  const { results, error, isQueryTooShort, searching } = useFundSearch(query);
 
   const handleSelect = (fund: SchemeSearchResult) => {
     onAdd(fund);
@@ -42,20 +43,27 @@ export function FundSearch({ onAdd, existingCodes }: FundSearchProps) {
           onFocus={() => setIsOpen(true)}
           onBlur={() => setTimeout(() => setIsOpen(false), 150)}
           placeholder="Search for a mutual fund (e.g. ITI Multi Cap Fund)"
-          className="w-full rounded-lg border border-line bg-ground px-4 py-2.5 pl-9 text-sm text-ink placeholder:text-ink-3 focus:border-acc focus:outline-none focus:ring-2 focus:ring-acc-wash"
+          className="w-full rounded-lg border border-line bg-ground px-4 py-2.5 pr-9 pl-9 text-sm text-ink placeholder:text-ink-3 focus:border-acc focus:outline-none focus:ring-2 focus:ring-acc-wash"
         />
+        {searching && (
+          <Spinner
+            className="pointer-events-none absolute top-1/2 right-3.5 h-3.5 w-3.5 -translate-y-1/2 text-acc"
+          />
+        )}
       </div>
 
       {isOpen && query.trim().length > 0 && (
         <div className="absolute z-10 mt-1 max-h-80 w-full overflow-y-auto rounded-lg border border-line bg-plate shadow-lg">
           {isQueryTooShort && <p className="px-4 py-3 text-sm text-ink-3">Keep typing (3+ characters)…</p>}
-          {!isQueryTooShort && loading && <p className="px-4 py-3 text-sm text-ink-3">Searching…</p>}
-          {!isQueryTooShort && error && <p className="px-4 py-3 text-sm text-danger">Search failed: {error}</p>}
-          {!isQueryTooShort && !loading && !error && results.length === 0 && (
+          {!isQueryTooShort && searching && <p className="px-4 py-3 text-sm text-ink-3">Searching…</p>}
+          {!isQueryTooShort && !searching && error && (
+            <p className="px-4 py-3 text-sm text-danger">Search failed: {error}</p>
+          )}
+          {!isQueryTooShort && !searching && !error && results.length === 0 && (
             <p className="px-4 py-3 text-sm text-ink-3">No matching funds found — try a different name.</p>
           )}
           {!isQueryTooShort &&
-            !loading &&
+            !searching &&
             results.slice(0, 30).map((fund) => {
               const alreadyAdded = existingCodes.has(fund.schemeCode);
               return (

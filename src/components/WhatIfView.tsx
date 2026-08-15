@@ -3,7 +3,8 @@ import { FundSearch } from './FundSearch';
 import { TradebookUpload } from './TradebookUpload';
 import { WhatIfChart, type WhatIfLine } from './WhatIfChart';
 import { WhatIfSummaryTable, type WhatIfRow } from './WhatIfSummaryTable';
-import { EmptyState } from './EmptyStates';
+import { EmptyState, LoadingState } from './EmptyStates';
+import { Spinner } from './Spinner';
 import { useFundHistories } from '../hooks/useFundHistory';
 import { useTradebookMatch } from '../hooks/useTradebookMatch';
 import { toAscendingNavPoints } from '../utils/dateUtils';
@@ -284,7 +285,12 @@ export function WhatIfView() {
                   className="flex items-center gap-2 rounded-full border border-line bg-plate py-1 pr-2 pl-3 text-xs"
                 >
                   <span className="max-w-xs truncate text-ink">{alt.schemeName}</span>
-                  {loading[alt.schemeCode] && <span className="text-ink-3">loading…</span>}
+                  {loading[alt.schemeCode] && (
+                    <span className="flex shrink-0 items-center gap-1 text-ink-2">
+                      <Spinner className="h-3 w-3 text-acc" />
+                      Loading NAV history…
+                    </span>
+                  )}
                   {errors[alt.schemeCode] && (
                     <span className="text-danger">failed</span>
                   )}
@@ -313,6 +319,15 @@ export function WhatIfView() {
           description="Upload your purchase history and pick up to two other funds. We replay the same money, on the same dates, into each of them."
         />
       )}
+
+      {chartData.length === 0 &&
+        alternatives.length > 0 &&
+        alternatives.some((alt) => loading[alt.schemeCode]) && (
+          <LoadingState
+            title="Loading fund history…"
+            description="Fetching NAV data from mfapi — this can take a few seconds for older funds."
+          />
+        )}
 
       {chartData.length > 0 && actualSim && (
         <>

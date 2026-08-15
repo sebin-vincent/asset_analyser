@@ -1,4 +1,5 @@
 import { Flag } from './Flag';
+import { Spinner } from './Spinner';
 import { useColorScheme } from '../hooks/useColorScheme';
 import { colorForIndex } from '../utils/colors';
 import type { SelectedFund } from '../types/fund';
@@ -41,7 +42,12 @@ export function SelectedFundsList({
             <span className="truncate text-ink" title={fund.name}>
               {fund.name}
             </span>
-            {loading[fund.schemeCode] && <span className="shrink-0 text-xs text-ink-3">loading…</span>}
+            {loading[fund.schemeCode] && (
+              <span className="flex shrink-0 items-center gap-1 text-xs text-ink-2">
+                <Spinner className="h-3 w-3 text-acc" />
+                Loading NAV history…
+              </span>
+            )}
             {error && (
               <button
                 type="button"

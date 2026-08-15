@@ -5,7 +5,7 @@ import { DateRangePicker } from './components/DateRangePicker';
 import { ComparisonChart } from './components/ComparisonChart';
 import { ReturnsSummaryTable } from './components/ReturnsSummaryTable';
 import { SelectionDeltaPanel } from './components/SelectionDeltaPanel';
-import { EmptyState } from './components/EmptyStates';
+import { EmptyState, LoadingState } from './components/EmptyStates';
 import { WhatIfView } from './components/WhatIfView';
 import { useSelectedFunds } from './hooks/useSelectedFunds';
 import { useFundHistories } from './hooks/useFundHistory';
@@ -29,8 +29,8 @@ function defaultRange(): DateRange {
 type Mode = 'compare' | 'what-if';
 
 const MODES: { id: Mode; label: string }[] = [
-  { id: 'compare', label: 'Compare funds' },
   { id: 'what-if', label: 'What if?' },
+  { id: 'compare', label: 'Compare funds' },
 ];
 
 function ModeToggle({ mode, onChange }: { mode: Mode; onChange: (mode: Mode) => void }) {
@@ -127,7 +127,7 @@ function Wordmark() {
 }
 
 function App() {
-  const [mode, setMode] = useState<Mode>('compare');
+  const [mode, setMode] = useState<Mode>('what-if');
   const { selectedFunds, add, remove } = useSelectedFunds();
   const schemeCodes = useMemo(() => selectedFunds.map((f) => f.schemeCode), [selectedFunds]);
   const { histories, loading, errors, retry } = useFundHistories(schemeCodes);
@@ -196,6 +196,7 @@ function App() {
   }, [selectedFunds, pointsByCode, rangeStart, rangeEnd]);
 
   const fundsWithData = selectedFunds.filter((f) => !noDataFunds.includes(f.schemeCode));
+  const anyHistoryLoading = selectedFunds.some((f) => loading[f.schemeCode]);
 
   // --- Two-point comparison selection ---------------------------------------------------
   const [selection, setSelection] = useState<ChartSelection>({ phase: 'idle' });
@@ -302,6 +303,11 @@ function App() {
                 <EmptyState
                   title="No funds selected yet"
                   description="Search for a mutual fund above and add a few to compare their performance."
+                />
+              ) : chartData.length === 0 && anyHistoryLoading ? (
+                <LoadingState
+                  title="Loading fund history…"
+                  description="Fetching NAV data from mfapi — this can take a few seconds for older funds."
                 />
               ) : chartData.length === 0 ? (
                 <EmptyState
