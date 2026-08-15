@@ -7,6 +7,7 @@ import { ReturnsSummaryTable } from './components/ReturnsSummaryTable';
 import { SelectionDeltaPanel } from './components/SelectionDeltaPanel';
 import { EmptyState, LoadingState } from './components/EmptyStates';
 import { WhatIfView } from './components/WhatIfView';
+import { OnboardingPopup } from './components/OnboardingPopup';
 import { useSelectedFunds } from './hooks/useSelectedFunds';
 import { useFundHistories } from './hooks/useFundHistory';
 import { useThemePreference } from './hooks/useThemePreference';
@@ -355,6 +356,7 @@ function App() {
           </>
         )}
       </div>
+      <OnboardingPopup />
     </div>
   );
 }
