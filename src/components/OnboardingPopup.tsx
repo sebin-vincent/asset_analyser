@@ -7,7 +7,7 @@ const MESSAGES: { lead: string; detail: string }[] = [
   {
     lead: 'Your data never leaves your browser.',
     detail:
-      'We are not sending any of your investment information to backend servers. Only the name of the fund is being used to query its historical NAV value to do the calculation and comparison.',
+      'We are not sending any of your investment information to backend servers. Only the name of the fund is being used to query its historical NAV values. All calculations are done locally in your browser.',
   },
   {
     lead: 'We use free MFAPI.',
