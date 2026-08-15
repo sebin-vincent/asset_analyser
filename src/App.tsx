@@ -281,7 +281,7 @@ function App() {
           <WhatIfView />
         ) : (
           <>
-            <section className="mb-6 overflow-hidden rounded-lg border border-line bg-plate shadow-sm">
+            <section className="mb-6 rounded-lg border border-line bg-plate shadow-sm">
               <div className="flex flex-col gap-3 border-b border-line p-4">
                 <FundSearch onAdd={add} existingCodes={existingCodes} />
                 <SelectedFundsList
