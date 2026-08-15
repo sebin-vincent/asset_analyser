@@ -254,28 +254,49 @@ export function ComparisonChart({
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!interactive || e.button !== 0) return;
     pointerDownRef.current = { x: e.clientX, y: e.clientY };
+    e.currentTarget.setPointerCapture(e.pointerId);
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     const down = pointerDownRef.current;
     pointerDownRef.current = null;
     if (!interactive || !down || e.button !== 0) return;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
 
-    // A press-and-drag would otherwise read as a click and commit at the release point —
-    // and drag is exactly what a Google-Finance-trained user tries first.
-    const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
-    if (moved > DRAG_TOLERANCE_PX) return;
-
+    // Same commit whether this is a plain click or a drag's release — a drag's press end
+    // already promoted the anchor in handlePointerMove, so this call is symmetric with a
+    // first click's.
     const time = resolveTime(e.clientX, e.clientY);
     if (time !== null) onPick(time);
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!isPicking) return; // avoid pointer-rate re-renders when there's nothing to preview
+    const down = pointerDownRef.current;
+    let picking = isPicking;
+
+    // A press that moves past the drag tolerance while not already mid-pick is a drag:
+    // promote the press origin to the anchor now, exactly as a first click would have.
+    if (down && selection.phase !== 'picking') {
+      const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
+      if (moved > DRAG_TOLERANCE_PX) {
+        const anchorTime = resolveTime(down.x, down.y);
+        if (anchorTime !== null) {
+          onPick(anchorTime);
+          picking = true;
+        }
+      }
+    }
+
+    if (!picking) return; // avoid pointer-rate re-renders when there's nothing to preview
     setHoverTime(resolveTime(e.clientX, e.clientY));
   };
 
-  const handlePointerLeave = () => {
+  const handlePointerLeave = (e: React.PointerEvent<HTMLDivElement>) => {
+    // Mid-drag, capture keeps move/up targeted here regardless of physical pointer position —
+    // don't cancel the gesture just because it crossed our bounds.
+    if (pointerDownRef.current && e.currentTarget.hasPointerCapture(e.pointerId)) return;
     pointerDownRef.current = null;
     setHoverTime(null);
   };
@@ -300,9 +321,9 @@ export function ComparisonChart({
   const hint = !interactive
     ? null
     : isPicking
-      ? 'Click a second date to compare · Esc to cancel'
+      ? 'Click or drag to a second date to compare · Esc to cancel'
       : selection.phase === 'idle'
-        ? 'Click two dates on the chart to compare the change between them'
+        ? 'Click two dates, or drag between them, to compare the change'
         : null;
 
   // Leader/trailer/spread read straight off the already-computed return summaries —
