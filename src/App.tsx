@@ -277,8 +277,12 @@ function App() {
     return computeSelectionDeltas(deltaInputs, selection.start, selection.end);
   }, [selection, deltaInputs]);
 
+  // Sticky-footer column: <main> takes the slack (flex-1) so the footer rests on the bottom edge
+  // of the viewport on a short page, instead of stranding a band of dead ground beneath it on a
+  // tall monitor. `w-full` on <main> is load-bearing — auto cross-axis margins (mx-auto) suppress
+  // the default stretch in a flex column, and without it the content collapses to fit-content.
   return (
-    <div className="min-h-screen bg-ground">
+    <div className="flex min-h-screen flex-col bg-ground">
       <div className="sticky top-0 z-20 border-b border-line bg-plate">
         <div className="mx-auto flex max-w-6xl items-center gap-4 px-6 py-3">
           <Wordmark />
@@ -290,7 +294,7 @@ function App() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-6xl px-6 py-8">
+      <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">
         <header className="mb-6">
           <h1 className="text-2xl font-semibold text-ink">Asset Analyser</h1>
           <p className="mt-1 max-w-2xl text-sm text-ink-2">
@@ -377,21 +381,21 @@ function App() {
             </section>
           </>
         )}
-      </div>
+      </main>
 
       <footer className="border-t border-line">
-        <div className="mx-auto max-w-6xl px-6 py-6 text-sm text-ink-3">
+        <div className="mx-auto max-w-6xl px-6 py-4 text-center text-xs text-ink-3">
           <p>
-            Runs entirely in your browser — nothing you upload leaves it.{' '}
+            Runs entirely in your browser — nothing you upload leaves it. {' '}
             <a
               href={REPO_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="font-medium text-ink-2 underline underline-offset-2 transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acc"
             >
-              Read the source or contribute on GitHub
+              Contribute on GitHub 
             </a>
-            .
+             ❤️
           </p>
         </div>
       </footer>
