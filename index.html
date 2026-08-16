@@ -38,8 +38,19 @@
       content="Compare Indian mutual funds side by side, or replay your real purchases into a different fund."
     />
     <title>Asset Analyser</title>
+    <!--
+      Pinned to a versioned URL with GoatCounter's published SRI hash, rather than the floating
+      //gc.zgo.at/count.js. This page parses a tradebook, so a third-party script that can change
+      under us is worth more than the convenience of automatic updates: `integrity` means the
+      browser refuses to run the file if it ever differs. `crossorigin` is required for SRI to be
+      checkable at all (gc.zgo.at sends Access-Control-Allow-Origin: *).
+      To upgrade, copy the whole tag from https://www.goatcounter.com/help/countjs-versions —
+      the hash must change with the URL.
+    -->
     <script data-goatcounter="https://asset-analyser.goatcounter.com/count"
-            async src="//gc.zgo.at/count.js"></script>
+            async src="https://gc.zgo.at/count.v5.js"
+            crossorigin="anonymous"
+            integrity="sha384-atnOLvQb9t+jTSipvd75X2yginT4PjVbqDdlJAmxMm+wYElFmeR6EmLP5bYeoRVQ"></script>
   </head>
   <body>
     <div id="root"></div>

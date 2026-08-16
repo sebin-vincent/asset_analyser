@@ -96,6 +96,31 @@ It's a static site: `npm run build` produces `dist/`, which can be served from a
 - **Vercel**: framework preset "Vite" — it will infer the same build command and output directory.
 - Deploying to a subpath (e.g. a GitHub Pages *project* site) additionally needs `base` set in [vite.config.ts](vite.config.ts); not needed on Netlify/Vercel's root domains.
 
+### Security headers
+
+The Content-Security-Policy is injected into `index.html` as a `<meta>` tag at build time by the
+`inject-csp` plugin in [vite.config.ts](vite.config.ts), so it ships inside `dist/` and applies on
+any static host — including GitHub Pages, which can't set headers at all. It's build-only: `npm run
+dev` runs without a CSP, because Vite's HMR needs inline scripts and a WebSocket that the policy
+blocks.
+
+A `<meta>` CSP silently ignores `frame-ancestors`, `report-uri` and `sandbox`, so those go in real
+headers — [public/\_headers](public/_headers) for Netlify (Vite copies it into `dist/`) and
+[vercel.json](vercel.json) for Vercel. Keep the two in sync. Multiple CSP policies intersect rather
+than override, so the meta tag and the header can't weaken each other.
+
+Verify a deploy with:
+
+```bash
+curl -sI <url> | grep -iE 'content-security-policy|referrer-policy|x-content-type'
+```
+
+**Upgrading the analytics script:** it's pinned to a versioned URL with a Subresource Integrity
+hash, so the browser refuses to run it if the file ever changes. To move to a newer version, copy
+the **whole `<script>` tag** from [GoatCounter's versions
+page](https://www.goatcounter.com/help/countjs-versions) — the hash has to change with the URL, and
+editing only the URL will silently stop analytics.
+
 ## Contributing
 
 Contributions are welcome — bug reports (especially a fund showing a number that looks wrong), new features, and doc fixes alike. See [CONTRIBUTING.md](CONTRIBUTING.md) for dev setup, the testing philosophy, and what a good PR looks like here.

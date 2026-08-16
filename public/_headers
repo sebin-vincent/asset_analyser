@@ -1,0 +1,14 @@
+# Security headers for Netlify. Copied verbatim into dist/ by Vite, which is where Netlify reads
+# it from. Vercel ignores this file — see vercel.json for the same set.
+#
+# These are the directives a <meta http-equiv="Content-Security-Policy"> silently ignores, so they
+# can only be delivered as real headers. The rest of the policy is injected into index.html at
+# build time by the inject-csp plugin in vite.config.ts. Multiple CSP policies intersect rather
+# than override, so the two cannot weaken each other.
+/*
+  # This page accepts a dropped tradebook CSV. Without frame-ancestors, the app can be framed
+  # invisibly and a drop induced onto it. Drop this line if you ever need to embed the site.
+  Content-Security-Policy: frame-ancestors 'none'
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Content-Type-Options: nosniff
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
